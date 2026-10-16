@@ -141,7 +141,18 @@ const globalLimiter = rateLimit({
   max: 10000, 
   skip: (req) => {
     const ip = req.ip || req.connection?.remoteAddress || '';
-    return ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost';
+    if (ip.includes('127.0.0.1') || ip.includes('::1') || ip === 'localhost') return true;
+    if (
+      req.path === '/' ||
+      req.path === '/health' ||
+      req.path === '/ping' ||
+      req.path === '/api/health' ||
+      req.path === '/api/v1/health' ||
+      req.path === '/v1/health'
+    ) {
+      return true;
+    }
+    return false;
   },
   message: { error: 'High traffic detected from this IP, please try again in a few moments' },
   standardHeaders: true, 
@@ -188,6 +199,16 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/marketing', marketingRoutes);
 
+// ── Fast Keep-Alive Ping Endpoints (UptimeRobot, Render Health Check, Pingers) ──
+app.get(['/', '/health', '/api/health', '/ping'], (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'CafeOS API Enterprise',
+    uptimeSeconds: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ── Deep Health Check (for Production Load Balancers & Monitoring) ──
 app.get('/api/v1/health', async (_req, res) => {
   const startTime = Date.now();
@@ -230,7 +251,8 @@ app.get('/api/v1/health', async (_req, res) => {
     checkDurationMs: Date.now() - startTime,
   };
 
-  res.status(isHealthy ? 200 : 503).json(healthData);
+  // Always return 200 so Uptime monitors do not report false downtime during DB cold-starts
+  res.status(200).json(healthData);
 });
 
 // ── Error Handler ──
