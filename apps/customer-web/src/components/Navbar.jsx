@@ -17,7 +17,8 @@ import {
   ExternalLink,
   Clock,
   Phone,
-  UserCheck
+  UserCheck,
+  MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCart } from '../context/CartContext.jsx';
@@ -362,9 +363,9 @@ export default function Navbar() {
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-[#E94B18] shrink-0" />
                     <div>
-                      <span className="font-bold text-[#203B2C]">Contact: </span>
-                      <a href="tel:+919009149694" className="text-[#E94B18] font-semibold hover:underline">
-                        +91 90091 49694
+                      <span className="font-bold text-[#203B2C]">Contact / Phone: </span>
+                      <a href="tel:+917000748920" className="text-[#E94B18] font-semibold hover:underline">
+                        +91 70007 48920
                       </a>
                     </div>
                   </div>
@@ -372,19 +373,29 @@ export default function Navbar() {
 
                 <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
                   <a
+                    href="https://wa.me/917000748920"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <a
                     href={MAPS_URL}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 bg-[#E94B18] hover:bg-[#C8451F] text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
                   >
                     <Navigation className="w-4 h-4" />
-                    <span>Open in Google Maps App</span>
+                    <span>Google Maps</span>
                     <ExternalLink className="w-3.5 h-3.5 ml-0.5 opacity-80" />
                   </a>
                   
                   <button
                     onClick={() => setShowLocationModal(false)}
-                    className="sm:w-28 py-2.5 px-4 border border-[#E9DFD0] hover:bg-[#F8F3E9] text-xs font-semibold text-[#4A382A] rounded-xl transition-colors"
+                    className="sm:w-24 py-2.5 px-4 border border-[#E9DFD0] hover:bg-[#F8F3E9] text-xs font-semibold text-[#4A382A] rounded-xl transition-colors"
                   >
                     Done
                   </button>

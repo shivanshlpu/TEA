@@ -25,7 +25,8 @@ import {
   Bell,
   CreditCard,
   Lock,
-  RefreshCw
+  RefreshCw,
+  MessageCircle
 } from 'lucide-react';
 import api, { SOCKET_URL } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -508,16 +509,26 @@ export default function OrderTracking() {
           <div className="text-xs">
             <h3 className="font-heading font-bold text-text-primary text-sm">Tea Bhatti Cafe</h3>
             <p className="text-text-secondary">Near Medical College, Shahdol, Madhya Pradesh</p>
-            <p className="text-text-secondary font-medium">Phone: +91 9009149694</p>
+            <p className="text-text-secondary font-medium">Phone: +91 7000748920</p>
           </div>
         </div>
 
-        <a 
-          href="tel:+919009149694" 
-          className="btn-outline px-4 py-2 text-xs font-bold flex items-center gap-1.5 shrink-0"
-        >
-          <Phone className="w-3.5 h-3.5" /> Call Store
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          <a 
+            href="https://wa.me/917000748920?text=Hi%20Tea%20Bhatti%2C%20I%20have%20an%20inquiry%20regarding%20my%20order" 
+            target="_blank"
+            rel="noreferrer"
+            className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl transition-colors shadow-xs"
+          >
+            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+          </a>
+          <a 
+            href="tel:+917000748920" 
+            className="btn-outline px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl shrink-0"
+          >
+            <Phone className="w-3.5 h-3.5" /> Call Store
+          </a>
+        </div>
       </div>
 
       {/* Order Item Details */}

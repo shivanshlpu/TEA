@@ -47,20 +47,22 @@ export default function Footer() {
           {/* Right: Social Links */}
           <div className="flex items-center gap-3">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/teabhatti.sdl/"
               target="_blank"
               rel="noreferrer"
-              className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-[#E9DFD0] hover:text-white hover:border-white transition-colors"
-              aria-label="Instagram"
+              className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-[#E9DFD0] hover:text-white hover:border-[#E94B18] hover:bg-[#E94B18]/20 transition-all"
+              aria-label="Instagram (@teabhatti.sdl)"
+              title="Follow us on Instagram (@teabhatti.sdl)"
             >
               <Instagram className="w-4 h-4" />
             </a>
             <a
-              href="https://wa.me/919009149694"
+              href="https://wa.me/917000748920"
               target="_blank"
               rel="noreferrer"
-              className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center text-[#E9DFD0] hover:text-white hover:border-white transition-colors"
-              aria-label="WhatsApp"
+              className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-[#E9DFD0] hover:text-white hover:border-emerald-500 hover:bg-emerald-500/20 transition-all"
+              aria-label="WhatsApp (+91 7000748920)"
+              title="Chat with us on WhatsApp (+91 7000748920)"
             >
               <MessageCircle className="w-4 h-4" />
             </a>

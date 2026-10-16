@@ -463,7 +463,7 @@ export default function Checkout() {
                 <span>Tea Bhatti Cafe Counter</span>
               </div>
               <p className="text-text-secondary pl-6">
-                Near Medical College, Shahdol, Madhya Pradesh • Phone: +91 9009149694
+                Near Medical College, Shahdol, Madhya Pradesh • Phone: +91 7000748920
               </p>
               <div className="pl-6 pt-1 text-[11px] text-text-secondary font-medium">
                 Show your pickup token at the counter when you arrive.
