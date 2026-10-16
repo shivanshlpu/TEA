@@ -1,0 +1,266 @@
+// ── CafeOS Prisma Schema ──
+// Multi-tenant by design: every table carries businessId.
+// Using MongoDB.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ── Core Tenancy ──────────────────────────────────
+model Business {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  industryType     String   // cafe | restaurant | bakery | juice_center | tiffin | cloud_kitchen
+  address          String
+  gstNumber        String?
+  openingTime      String
+  closingTime      String
+  deliveryRadiusKm Float
+  minOrderAmount   Float
+  packingCharge    Float
+  deliveryCharge   Float
+  upiId            String?
+  qrCodeUrl        String?
+  phoneNumber      String
+  whatsappNumber   String
+  createdAt        DateTime @default(now())
+
+  // Relations
+  users       User[]
+  customers   Customer[]
+  categories  Category[]
+  menuItems   MenuItem[]
+  orders      Order[]
+  coupons     Coupon[]
+  inventory   InventoryItem[]
+  employees   Employee[]
+}
+
+// ── Users & Roles ─────────────────────────────────
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId   String?  @db.ObjectId // null for customers who order across businesses
+  role         String   // customer | owner | cashier | chef | manager | delivery_partner
+  name         String
+  phone        String   @unique
+  email        String?
+  passwordHash String?
+  createdAt    DateTime @default(now())
+
+  business  Business?  @relation(fields: [businessId], references: [id])
+  customer  Customer?
+  employee  Employee?
+}
+
+model Customer {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String    @unique @db.ObjectId
+  businessId    String    @db.ObjectId
+  totalOrders   Int       @default(0)
+  totalSpent    Float     @default(0)
+  loyaltyPoints Int       @default(0)
+  lastOrderAt   DateTime?
+  birthday      DateTime?
+  isPremium     Boolean   @default(false)
+  referralCode  String?   @unique
+
+  user     User     @relation(fields: [userId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
+  orders   Order[]
+  reviews  Review[]
+
+  @@index([businessId, totalOrders])
+}
+
+// ── Menu ──────────────────────────────────────────
+model Category {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  businessId String @db.ObjectId
+  name       String
+  sortOrder  Int
+
+  business  Business   @relation(fields: [businessId], references: [id])
+  menuItems MenuItem[]
+
+  @@index([businessId, sortOrder])
+}
+
+model MenuItem {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  businessId  String  @db.ObjectId
+  categoryId  String  @db.ObjectId
+  name        String
+  description String?
+  price       Float
+  discountPct Float   @default(0)
+  imageUrl    String?
+  isVeg       Boolean
+  isAvailable Boolean @default(true)
+  rating      Float   @default(0)
+
+  business   Business    @relation(fields: [businessId], references: [id])
+  category   Category    @relation(fields: [categoryId], references: [id])
+  addOns     AddOn[]
+  orderItems OrderItem[]
+
+  @@index([businessId, isAvailable])
+  @@index([businessId, categoryId])
+  @@index([categoryId])
+}
+
+model AddOn {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  menuItemId String @db.ObjectId
+  name       String
+  price      Float
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+}
+
+// ── Cart & Orders ─────────────────────────────────
+model Order {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId        String   @db.ObjectId
+  customerId        String   @db.ObjectId
+  orderType         String   // pickup | delivery
+  status            String   // received | accepted | preparing | ready | out_for_delivery | delivered | cancelled
+  subtotal          Float
+  packingCharge     Float
+  deliveryCharge    Float
+  gst               Float
+  discount          Float
+  total             Float
+  paymentStatus     String   // pending | advance_paid | verified | paid_online | fully_paid | failed | refunded
+  paymentUtr        String?
+  advanceAmount     Float?   @default(0)
+  balanceAmount     Float?   @default(0)
+  pickupCode        String?
+  refundCode        String?
+  readySoon         Boolean? @default(false)
+  readySoonAt       DateTime?
+  stripePaymentIntentId String?
+  refundStatus      String?  @default("none") // none | pending | refunded
+  refundAmount      Float?   @default(0)
+  refundedAt        DateTime?
+  paidAt            DateTime?
+  couponCode        String?
+  deliveryAddress   String?
+  distanceKm        Float?   @default(2.5)
+  estimatedMinutes  Int?     @default(30)
+  deliveryPartnerId String?  @db.ObjectId
+  createdAt         DateTime @default(now())
+
+  business         Business         @relation(fields: [businessId], references: [id])
+  customer         Customer         @relation(fields: [customerId], references: [id])
+  items            OrderItem[]
+  statusLogs       OrderStatusLog[]
+  deliveryTracking DeliveryTracking[]
+  review           Review?
+
+  @@index([businessId, status, createdAt])
+  @@index([customerId, createdAt])
+  @@index([businessId, createdAt])
+  @@index([pickupCode])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  orderId    String @db.ObjectId
+  menuItemId String @db.ObjectId
+  quantity   Int
+  priceEach  Float
+  addOns     String @default("[]") // JSON string: [{name, price}]
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model OrderStatusLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  status    String
+  timestamp DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId, timestamp])
+}
+
+// ── Delivery ──────────────────────────────────────
+model DeliveryTracking {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String   @db.ObjectId
+  latitude  Float
+  longitude Float
+  updatedAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+// ── Marketing / CRM ──────────────────────────────
+model Coupon {
+  id           String    @id @default(auto()) @map("_id") @db.ObjectId
+  businessId   String    @db.ObjectId
+  code         String
+  discountType String    // percentage | fixed | free_delivery
+  value        Float
+  expiresAt    DateTime?
+  usageLimit   Int?
+  usedCount    Int?      @default(0)
+  usedByCustomerIds String[] @default([])
+
+  business Business @relation(fields: [businessId], references: [id])
+
+  @@index([businessId, code])
+  @@index([code])
+}
+
+model Review {
+  id         String  @id @default(auto()) @map("_id") @db.ObjectId
+  orderId    String  @unique @db.ObjectId
+  customerId String  @db.ObjectId
+  rating     Int
+  comment    String?
+
+  order    Order    @relation(fields: [orderId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+}
+
+model Referral {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  referrerId   String  @db.ObjectId
+  refereeId    String  @db.ObjectId
+  rewardIssued Boolean @default(false)
+}
+
+// ── Ops ───────────────────────────────────────────
+model InventoryItem {
+  id           String @id @default(auto()) @map("_id") @db.ObjectId
+  businessId   String @db.ObjectId
+  name         String
+  unit         String // kg | litre | pcs
+  currentStock Float
+  lowStockAt   Float
+
+  business Business @relation(fields: [businessId], references: [id])
+}
+
+model Employee {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String @unique @db.ObjectId
+  businessId String @db.ObjectId
+  role       String // cashier | chef | manager | delivery_partner
+  permissions String @default("{}") // JSON string
+
+  user     User     @relation(fields: [userId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
+}

@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Styles ── */
+@layer base {
+  :root {
+    --bg-base: #FFF8F0;
+    --color-primary: #E4572E;
+    --text-primary: #3A2618;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #3A2618;
+    background-color: #FFF8F0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', Georgia, serif;
+    color: #3A2618;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #FFF8F0; }
+::-webkit-scrollbar-thumb { background: #F0DCC4; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #E4572E; }
+
+/* Hide scrollbar for horizontal scroll areas */
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ── Shimmer Skeleton ── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #FDECD8 0%,
+    #FFF8F0 40%,
+    #FDECD8 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.skeleton-dark {
+  background: linear-gradient(
+    90deg,
+    #F0DCC4 0%,
+    #FDECD8 40%,
+    #F0DCC4 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Component Utilities ── */
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white font-semibold py-3 px-6 rounded-button
+           transition-all duration-200 ease-in-out
+           hover:bg-primary-hover hover:shadow-card-hover
+           active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-text-primary font-semibold py-3 px-6 rounded-button
+           transition-all duration-200 ease-in-out
+           hover:brightness-110 hover:shadow-card-hover
+           active:scale-[0.98];
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary text-primary font-semibold py-3 px-6 rounded-button
+           bg-transparent transition-all duration-200
+           hover:bg-primary hover:text-white active:scale-[0.98];
+  }
+
+  .card {
+    @apply bg-bg-surface rounded-card shadow-card
+           transition-all duration-200 hover:shadow-card-hover;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-button border border-border-subtle
+           bg-bg-surface text-text-primary
+           placeholder:text-text-secondary/60
+           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+           transition-all duration-200;
+  }
+}
+
+/* ── High-Fidelity Professional Print Styles ── */
+@media print {
+  @page {
+    size: auto;
+    margin: 6mm 8mm;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #171717 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  nav, footer, button, .print-hidden, .print\\:hidden {
+    display: none !important;
+  }
+}
+

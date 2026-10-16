@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: #3A2618;
+    background-color: #FFF8F0;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  body { 
+    margin: 0; 
+    padding: 0; 
+    min-height: 100vh; 
+    overflow-x: hidden; 
+    position: relative;
+    width: 100%;
+  }
+  h1, h2, h3, h4, h5, h6 { font-family: 'Fraunces', Georgia, serif; color: #3A2618; }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white font-semibold py-3 px-6 rounded-button
+           transition-all duration-200 hover:bg-primary-hover hover:shadow-card-hover
+           active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+  .btn-outline {
+    @apply border-2 border-primary text-primary font-semibold py-3 px-6 rounded-button
+           bg-transparent transition-all duration-200 hover:bg-primary hover:text-white active:scale-[0.98];
+  }
+  .card {
+    @apply bg-bg-surface rounded-card shadow-card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+  .input-field {
+    @apply w-full px-4 py-3 rounded-button border border-border-subtle bg-bg-surface text-text-primary
+           placeholder:text-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-primary/20
+           focus:border-primary transition-all duration-200;
+  }
+}
+
+/* ── High-Fidelity Professional Print Styles ── */
+@media print {
+  @page {
+    size: auto;
+    margin: 6mm 8mm;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #171717 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  nav, aside, button, .print-hidden, .print\\:hidden {
+    display: none !important;
+  }
+}
+

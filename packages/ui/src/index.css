@@ -1,0 +1,94 @@
+/* ── CafeOS Global Styles ── */
+/* Appetite-first, warm palette. NO dark mode. */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base Layer ── */
+@layer base {
+  :root {
+    --bg-base: #FFF8F0;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #FDECD8;
+    --color-primary: #E4572E;
+    --color-primary-hover: #C8451F;
+    --color-secondary: #F4A300;
+    --color-accent: #E76F51;
+    --text-primary: #3A2618;
+    --text-secondary: #7A5C4B;
+    --color-success: #6A9955;
+    --color-warning: #F4A300;
+    --color-error: #D64550;
+    --color-info: #457B9D;
+    --border-subtle: #F0DCC4;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--text-primary);
+    background-color: var(--bg-base);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Fraunces', Georgia, serif;
+    color: var(--text-primary);
+  }
+
+  /* Prices are always bold, always prominent — never grey */
+  .price {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+}
+
+/* ── Component Layer ── */
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white font-semibold py-3 px-6 rounded-button
+           transition-all duration-200 ease-in-out
+           hover:bg-primary-hover hover:shadow-card-hover
+           active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-text-primary font-semibold py-3 px-6 rounded-button
+           transition-all duration-200 ease-in-out
+           hover:brightness-110 hover:shadow-card-hover
+           active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-secondary/30;
+  }
+
+  .btn-outline {
+    @apply border-2 border-primary text-primary font-semibold py-3 px-6 rounded-button
+           bg-transparent transition-all duration-200 ease-in-out
+           hover:bg-primary hover:text-white
+           active:scale-[0.98]
+           focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+
+  .card {
+    @apply bg-bg-surface rounded-card shadow-card
+           transition-shadow duration-200 ease-in-out
+           hover:shadow-card-hover;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 rounded-button border border-border-subtle
+           bg-bg-surface text-text-primary font-body
+           placeholder:text-text-secondary/60
+           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+           transition-all duration-200;
+  }
+}

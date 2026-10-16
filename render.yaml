@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: cafe-api
+    runtime: node
+    rootDir: apps/api
+    plan: free
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 30d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 365d
+      - key: CUSTOMER_WEB_URL
+        sync: false
+      - key: OWNER_DASHBOARD_URL
+        sync: false
