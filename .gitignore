@@ -34,7 +34,6 @@ coverage/
 
 # Uploads & Secrets
 apps/api/data/
-apps/api/public/uploads/
 apps/api/scripts/
 scripts/
 *.local
