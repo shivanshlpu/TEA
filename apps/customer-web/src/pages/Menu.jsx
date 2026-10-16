@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Minus, ShoppingCart, Check } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, Check, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../lib/api.js';
 import { useCart } from '../context/CartContext.jsx';
@@ -223,10 +223,12 @@ export default function Menu() {
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [slowLoadWarning, setSlowLoadWarning] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
   const [sortBy, setSortBy] = useState('');
-  const { addItem, businessId } = useCart();
+  const { addItem, businessId, setBusinessId } = useCart();
   const [toast, setToast] = useState('');
   const bId = businessId || searchParams.get('businessId') || '';
 
@@ -243,14 +245,21 @@ export default function Menu() {
   async function loadCategories() {
     try {
       const data = await api.getCategories(bId);
-      setCategories(data);
+      if (Array.isArray(data)) setCategories(data);
     } catch (err) {
-      console.error('Failed to load categories:', err);
+      console.warn('Categories load note:', err);
     }
   }
 
   async function loadMenu() {
     setLoading(true);
+    setFetchError(null);
+
+    // Warm-up indicator if backend takes more than 3.5s (Render cold start)
+    const timer = setTimeout(() => {
+      setSlowLoadWarning(true);
+    }, 3500);
+
     try {
       let params = '';
       if (selectedCategory) {
@@ -260,10 +269,19 @@ export default function Menu() {
       if (search) params += `&search=${encodeURIComponent(search)}`;
 
       const data = await api.getMenu(bId, params);
-      setItems(data.items);
+      const menuList = data?.items || (Array.isArray(data) ? data : []);
+      setItems(menuList);
+
+      if (data?.businessId && setBusinessId && !businessId) {
+        setBusinessId(data.businessId);
+        localStorage.setItem('cafeos_businessId', data.businessId);
+      }
     } catch (err) {
       console.error('Failed to load menu:', err);
+      setFetchError(err.message || 'Could not load menu items from server');
     } finally {
+      clearTimeout(timer);
+      setSlowLoadWarning(false);
       setLoading(false);
     }
   }
@@ -273,19 +291,6 @@ export default function Menu() {
     setToast(`${item.name} added to cart!`);
     setTimeout(() => setToast(''), 2500);
   };
-
-  if (!bId) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-3xl font-heading font-bold text-text-primary mb-4">
-          Welcome to Tea Bhatti Cafe
-        </h1>
-        <p className="text-text-secondary mb-6">
-          Setting up... please wait for the menu to load.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -298,6 +303,48 @@ export default function Menu() {
           Freshly prepared 100% vegetarian bites and beverages.
         </p>
       </div>
+
+      {/* Render Server Cold-Start Notice */}
+      {slowLoadWarning && loading && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-5 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3 shadow-2xs"
+        >
+          <div className="flex items-center gap-2.5">
+            <RefreshCw className="w-4 h-4 text-amber-600 animate-spin shrink-0" />
+            <span>
+              <strong>Connecting to café server...</strong> The server is waking up (Render free tier may take ~20-30s on first load).
+            </span>
+          </div>
+          <span className="text-[10px] text-amber-700 bg-amber-200/60 px-2 py-0.5 rounded-full font-bold shrink-0">
+            Warming up
+          </span>
+        </motion.div>
+      )}
+
+      {/* Connection Error with Retry Button */}
+      {fetchError && !loading && items.length === 0 && (
+        <div className="text-center py-10 px-4 rounded-2xl bg-red-50/60 border border-red-200 mb-6">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-2.5" />
+          <h3 className="text-base font-heading font-bold text-red-900 mb-1">
+            Unable to load menu
+          </h3>
+          <p className="text-xs text-red-700 mb-4 max-w-md mx-auto">
+            {fetchError}. If the backend just woke up, please click retry below.
+          </p>
+          <button
+            onClick={() => {
+              loadCategories();
+              loadMenu();
+            }}
+            className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry Connection</span>
+          </button>
+        </div>
+      )}
 
       {/* Animated Toast */}
       <AnimatePresence>

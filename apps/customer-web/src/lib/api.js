@@ -87,9 +87,25 @@ export const api = {
   getDefaultBusiness: () => request('/settings/default-business'),
 
   // Menu (public)
-  getMenu: (businessId, params = '') => request(`/menu?businessId=${businessId}${params}`),
+  getMenu: (businessId, params = '') => {
+    const q = [];
+    if (businessId && businessId !== 'undefined' && businessId !== 'null') {
+      q.push(`businessId=${encodeURIComponent(businessId)}`);
+    }
+    if (params) {
+      const cleanParams = params.replace(/^[&?]/, '');
+      if (cleanParams) q.push(cleanParams);
+    }
+    const queryStr = q.length > 0 ? `?${q.join('&')}` : '';
+    return request(`/menu${queryStr}`);
+  },
   getMenuItem: (id) => request(`/menu/${id}`),
-  getCategories: (businessId) => request(`/categories?businessId=${businessId}`),
+  getCategories: (businessId) => {
+    const query = (businessId && businessId !== 'undefined' && businessId !== 'null')
+      ? `?businessId=${encodeURIComponent(businessId)}`
+      : '';
+    return request(`/categories${query}`);
+  },
 
   // Cart
   computeCart: (body) => request('/cart/compute', { method: 'POST', body }),

@@ -92,7 +92,7 @@ router.get('/', businessFromQuery, async (req, res) => {
       orderBy,
     });
 
-    const responsePayload = { items, total: items.length };
+    const responsePayload = { items, total: items.length, businessId: req.businessId };
     cache.set(cacheKey, responsePayload, 180); // 3 min cache
 
     res.setHeader('X-Cache', 'MISS');
