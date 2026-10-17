@@ -68,6 +68,52 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
     }
     if (!business) return res.status(404).json({ error: 'Business not found' });
 
+    // Store Availability Check (Emergency Pause, Closed Days, Operating Hours)
+    if (business.isAcceptingOrders === false) {
+      const reason = business.closureReason || 'Temporarily not accepting orders. Please check back later.';
+      return res.status(400).json({
+        error: `Tea Bhatti is currently unable to accept orders: ${reason}`,
+        isStoreClosed: true,
+        closureReason: reason,
+      });
+    }
+
+    // Check closed days & operating hours in IST (Asia/Kolkata)
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDayName = daysOfWeek[nowIST.getDay()];
+
+    if (Array.isArray(business.closedDays) && business.closedDays.includes(currentDayName)) {
+      return res.status(400).json({
+        error: `Tea Bhatti is closed on ${currentDayName}s. We look forward to serving you on our next working day!`,
+        isStoreClosed: true,
+        closureReason: `Closed on ${currentDayName}s`,
+      });
+    }
+
+    if (business.openingTime && business.closingTime) {
+      const [openH, openM] = business.openingTime.split(':').map(Number);
+      const [closeH, closeM] = business.closingTime.split(':').map(Number);
+      const currentMinutes = nowIST.getHours() * 60 + nowIST.getMinutes();
+      const openMinutes = openH * 60 + openM;
+      const closeMinutes = closeH * 60 + closeM;
+
+      let isOpen = false;
+      if (openMinutes <= closeMinutes) {
+        isOpen = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+      } else {
+        isOpen = currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+      }
+
+      if (!isOpen) {
+        return res.status(400).json({
+          error: `Tea Bhatti is currently closed. Operating hours are ${business.openingTime} to ${business.closingTime}.`,
+          isStoreClosed: true,
+          closureReason: `Closed. Operating hours: ${business.openingTime} - ${business.closingTime}`,
+        });
+      }
+    }
+
     // Enforce Pickup Only (Delivery Coming Soon)
     if (orderType === 'delivery') {
       return res.status(400).json({
@@ -443,11 +489,21 @@ router.patch('/:id/status',
         });
       }
 
+      // Auto-verify advance payment when order is accepted/processed
+      const shouldVerifyPayment = ['accepted', 'preparing', 'ready', 'delivered'].includes(req.body.status) &&
+        ['pending', 'utr_submitted'].includes(order.paymentStatus);
+
       const updateTx = async () => {
         return await req.prisma.$transaction(async (tx) => {
+          const updateData = { status: req.body.status };
+          if (shouldVerifyPayment) {
+            updateData.paymentStatus = 'verified';
+            if (!order.paidAt) updateData.paidAt = new Date();
+          }
+
           const ord = await tx.order.update({
             where: { id: req.params.id },
-            data: { status: req.body.status },
+            data: updateData,
             include: { 
               items: { include: { menuItem: true } },
               customer: { include: { user: true } },
@@ -458,6 +514,12 @@ router.patch('/:id/status',
           await tx.orderStatusLog.create({
             data: { orderId: ord.id, status: req.body.status },
           });
+
+          if (shouldVerifyPayment) {
+            await tx.orderStatusLog.create({
+              data: { orderId: ord.id, status: 'payment_verified' },
+            });
+          }
 
           // On delivered: update customer stats + loyalty points
           if (req.body.status === 'delivered') {
@@ -515,13 +577,24 @@ router.patch('/:id/status',
       req.io.to(`order:${updated.id}`).emit('order-status-update', {
         orderId: updated.id,
         status: updated.status,
+        paymentStatus: updated.paymentStatus,
         timestamp: new Date(),
       });
+
+      // If payment was verified, emit payment-update event too
+      if (shouldVerifyPayment) {
+        req.io.to(`order:${updated.id}`).emit('payment-update', {
+          orderId: updated.id,
+          paymentStatus: updated.paymentStatus,
+          status: updated.status,
+        });
+      }
 
       // Also notify business room
       req.io.to(`business:${updated.businessId}`).emit('order-updated', {
         orderId: updated.id,
         status: updated.status,
+        paymentStatus: updated.paymentStatus,
       });
 
       // WhatsApp to customer based on status
@@ -578,8 +651,23 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
 
     if (['preparing', 'ready', 'delivered'].includes(order.status)) {
       return res.status(400).json({
-        error: 'Once the owner marks the order as preparing, the customer no longer has the option to cancel it.',
+        error: 'Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please call Tea Bhatti at +91 7000748920 to request it. Please note: No refunds can be provided once preparation has begun.',
+        callToCancel: true,
+        phone: '+917000748920',
       });
+    }
+
+    // Customer cancellation is strictly limited to first 5 minutes of placing order
+    if (req.user.role === 'customer') {
+      const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+      const FIVE_MINUTES_MS = 5 * 60 * 1000;
+      if (orderAgeMs > FIVE_MINUTES_MS) {
+        return res.status(400).json({
+          error: 'Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please call Tea Bhatti at +91 7000748920. No refunds can be provided once preparation has begun.',
+          callToCancel: true,
+          phone: '+917000748920',
+        });
+      }
     }
 
     if (!['received', 'accepted'].includes(order.status)) {
@@ -1075,8 +1163,23 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
 
     if (['preparing', 'ready', 'delivered'].includes(order.status)) {
       return res.status(400).json({
-        error: 'Once the owner marks the order as preparing, the customer no longer has the option to cancel it.',
+        error: 'Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please call Tea Bhatti at +91 7000748920 to request it. Please note: No refunds can be provided once preparation has begun.',
+        callToCancel: true,
+        phone: '+917000748920',
       });
+    }
+
+    // Customer cancellation is strictly limited to first 5 minutes of placing order
+    if (req.user.role === 'customer') {
+      const orderAgeMs = Date.now() - new Date(order.createdAt).getTime();
+      const FIVE_MINUTES_MS = 5 * 60 * 1000;
+      if (orderAgeMs > FIVE_MINUTES_MS) {
+        return res.status(400).json({
+          error: 'Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please call Tea Bhatti at +91 7000748920. No refunds can be provided once preparation has begun.',
+          callToCancel: true,
+          phone: '+917000748920',
+        });
+      }
     }
 
     if (!['received', 'accepted'].includes(order.status)) {

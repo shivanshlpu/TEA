@@ -198,6 +198,55 @@ export default function Checkout() {
     }
   }
 
+  // Store Availability Check (Emergency Pause, Closed Days, Operating Hours)
+  const storeStatus = React.useMemo(() => {
+    if (!businessConfig) return { isOpen: true };
+
+    if (businessConfig.isAcceptingOrders === false) {
+      return {
+        isOpen: false,
+        reason: businessConfig.closureReason || 'Unable to accept orders right now due to a temporary outage. Please check back later.',
+        type: 'emergency',
+      };
+    }
+
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = days[nowIST.getDay()];
+    if (Array.isArray(businessConfig.closedDays) && businessConfig.closedDays.includes(currentDay)) {
+      return {
+        isOpen: false,
+        reason: `Tea Bhatti is closed today (${currentDay}). We look forward to serving you on our next working day!`,
+        type: 'closed_day',
+      };
+    }
+
+    if (businessConfig.openingTime && businessConfig.closingTime) {
+      const [openH, openM] = businessConfig.openingTime.split(':').map(Number);
+      const [closeH, closeM] = businessConfig.closingTime.split(':').map(Number);
+      const currentMinutes = nowIST.getHours() * 60 + nowIST.getMinutes();
+      const openMinutes = openH * 60 + openM;
+      const closeMinutes = closeH * 60 + closeM;
+
+      let inHours = false;
+      if (openMinutes <= closeMinutes) {
+        inHours = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+      } else {
+        inHours = currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+      }
+
+      if (!inHours) {
+        return {
+          isOpen: false,
+          reason: `Tea Bhatti is currently closed. Today's operating hours are ${businessConfig.openingTime} to ${businessConfig.closingTime}.`,
+          type: 'hours',
+        };
+      }
+    }
+
+    return { isOpen: true };
+  }, [businessConfig]);
+
   // Load dynamic UPI deep links and QR from backend
   async function loadUpiData(orderId) {
     try {
@@ -212,6 +261,12 @@ export default function Checkout() {
   async function handlePayNow(preferredApp = 'universal') {
     if (!isAuthenticated) {
       navigate('/login?redirect=/checkout');
+      return;
+    }
+
+    if (!storeStatus.isOpen) {
+      setError(storeStatus.reason);
+      toast.error(storeStatus.reason);
       return;
     }
 
@@ -415,6 +470,44 @@ export default function Checkout() {
         </div>
       </div>
 
+      {/* Store Closed / Offline Emergency Notice Banner */}
+      {!storeStatus.isOpen && (
+        <div className="mb-6 p-5 rounded-2xl bg-red-50 border-2 border-red-300 text-red-950 space-y-3 shadow-md animate-fade-in">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-red-200/80 flex items-center justify-center text-red-800 shrink-0 mt-0.5">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="font-heading font-black text-sm text-red-900">
+                Notice: Store is Currently Unavailable
+              </h2>
+              <p className="text-xs text-red-800 font-medium leading-relaxed">
+                {storeStatus.reason}
+              </p>
+              <p className="text-[11px] text-red-700">
+                New orders are temporarily paused. If you have questions or an ongoing pickup, please contact us directly.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-red-200">
+            <a
+              href="tel:+917000748920"
+              className="btn-primary bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
+            >
+              Call Store (+91 7000748920)
+            </a>
+            <a
+              href="https://wa.me/917000748920?text=Hi%20Tea%20Bhatti%2C%20I%20have%20an%20inquiry%20regarding%20store%20hours"
+              target="_blank"
+              rel="noreferrer"
+              className="btn-outline border-red-300 text-red-900 hover:bg-red-100/60 px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5"
+            >
+              WhatsApp Us
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Notice if returning with a saved pending order */}
       {pendingOrder && (
         <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 flex items-center justify-between gap-4 animate-fade-in shadow-sm">
@@ -584,10 +677,19 @@ export default function Checkout() {
                       <button
                         type="button"
                         onClick={() => handlePayNow('universal')}
-                        disabled={placing}
-                        className="btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                        disabled={placing || !storeStatus.isOpen}
+                        className={`btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
+                          !storeStatus.isOpen
+                            ? 'opacity-60 cursor-not-allowed bg-gray-600 hover:bg-gray-600'
+                            : 'hover:shadow-xl'
+                        }`}
                       >
-                        {placing ? (
+                        {!storeStatus.isOpen ? (
+                          <>
+                            <AlertCircle className="w-4 h-4 text-amber-200" />
+                            <span>Store Offline — Orders Paused</span>
+                          </>
+                        ) : placing ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
                             <span>Opening UPI App...</span>
@@ -616,8 +718,8 @@ export default function Checkout() {
                         <button
                           type="button"
                           onClick={() => handlePayNow('phonepe')}
-                          disabled={placing}
-                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#5f259f] hover:bg-[#5f259f]/5 transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
+                          disabled={placing || !storeStatus.isOpen}
+                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#5f259f] hover:bg-[#5f259f]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
                         >
                           <div className="w-9 h-9 rounded-xl bg-[#5f259f] text-white flex items-center justify-center font-black text-xs shadow-sm">
                             Pe
@@ -629,8 +731,8 @@ export default function Checkout() {
                         <button
                           type="button"
                           onClick={() => handlePayNow('gpay')}
-                          disabled={placing}
-                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#1a73e8] hover:bg-[#1a73e8]/5 transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
+                          disabled={placing || !storeStatus.isOpen}
+                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#1a73e8] hover:bg-[#1a73e8]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
                         >
                           <div className="w-9 h-9 rounded-xl bg-[#1a73e8] text-white flex items-center justify-center font-black text-xs shadow-sm">
                             G
@@ -642,8 +744,8 @@ export default function Checkout() {
                         <button
                           type="button"
                           onClick={() => handlePayNow('paytm')}
-                          disabled={placing}
-                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#00b9f5] hover:bg-[#00b9f5]/5 transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
+                          disabled={placing || !storeStatus.isOpen}
+                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#00b9f5] hover:bg-[#00b9f5]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
                         >
                           <div className="w-9 h-9 rounded-xl bg-[#00b9f5] text-white flex items-center justify-center font-black text-xs shadow-sm">
                             Pay
@@ -655,8 +757,8 @@ export default function Checkout() {
                         <button
                           type="button"
                           onClick={() => handlePayNow('supermoney')}
-                          disabled={placing}
-                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#0f172a] hover:bg-[#0f172a]/5 transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
+                          disabled={placing || !storeStatus.isOpen}
+                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-[#0f172a] hover:bg-[#0f172a]/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex flex-col items-center gap-1.5 text-center shadow-sm"
                         >
                           <div className="w-9 h-9 rounded-xl bg-[#0f172a] text-white flex items-center justify-center font-black text-xs shadow-sm">
                             S
@@ -668,8 +770,8 @@ export default function Checkout() {
                         <button
                           type="button"
                           onClick={() => handlePayNow('bhim')}
-                          disabled={placing}
-                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center gap-1.5 text-center shadow-sm col-span-2 sm:col-span-1"
+                          disabled={placing || !storeStatus.isOpen}
+                          className="p-3 rounded-2xl border-2 border-border-subtle bg-white hover:border-primary hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex flex-col items-center gap-1.5 text-center shadow-sm col-span-2 sm:col-span-1"
                         >
                           <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center font-black text-xs shadow-sm">
                             UPI
@@ -739,8 +841,8 @@ export default function Checkout() {
                       <button
                         type="button"
                         onClick={() => handlePayNow('qr')}
-                        disabled={placing}
-                        className="btn-ghost py-2.5 px-3 text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary/5 transition-all text-text-secondary"
+                        disabled={placing || !storeStatus.isOpen}
+                        className="btn-ghost py-2.5 px-3 text-xs font-bold flex items-center justify-center gap-1 hover:bg-primary/5 transition-all text-text-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Refresh QR Code"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${placing ? 'animate-spin' : ''}`} />
@@ -768,10 +870,19 @@ export default function Checkout() {
                     <button
                       type="button"
                       onClick={() => handlePayNow('qr')}
-                      disabled={placing}
-                      className="btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                      disabled={placing || !storeStatus.isOpen}
+                      className={`btn-primary w-full py-4 text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
+                        !storeStatus.isOpen
+                          ? 'opacity-60 cursor-not-allowed bg-gray-600 hover:bg-gray-600'
+                          : 'hover:shadow-xl'
+                      }`}
                     >
-                      {placing ? (
+                      {!storeStatus.isOpen ? (
+                        <>
+                          <AlertCircle className="w-4 h-4 text-amber-200" />
+                          <span>Store Offline — Orders Paused</span>
+                        </>
+                      ) : placing ? (
                         <>
                           <RefreshCw className="w-4 h-4 animate-spin" />
                           <span>Generating Payment QR Code...</span>

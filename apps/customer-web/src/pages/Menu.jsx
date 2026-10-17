@@ -228,9 +228,58 @@ export default function Menu() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '');
   const [sortBy, setSortBy] = useState('');
-  const { addItem, businessId, setBusinessId } = useCart();
+  const { addItem, businessId, setBusinessId, businessConfig } = useCart();
   const [toast, setToast] = useState('');
   const bId = businessId || searchParams.get('businessId') || '';
+
+  // Store Availability Check (Emergency Pause, Closed Days, Operating Hours)
+  const storeStatus = React.useMemo(() => {
+    if (!businessConfig) return { isOpen: true };
+
+    if (businessConfig.isAcceptingOrders === false) {
+      return {
+        isOpen: false,
+        reason: businessConfig.closureReason || 'Unable to accept orders right now. Please check back later.',
+        type: 'emergency',
+      };
+    }
+
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = days[nowIST.getDay()];
+    if (Array.isArray(businessConfig.closedDays) && businessConfig.closedDays.includes(currentDay)) {
+      return {
+        isOpen: false,
+        reason: `Tea Bhatti is closed today (${currentDay}).`,
+        type: 'closed_day',
+      };
+    }
+
+    if (businessConfig.openingTime && businessConfig.closingTime) {
+      const [openH, openM] = businessConfig.openingTime.split(':').map(Number);
+      const [closeH, closeM] = businessConfig.closingTime.split(':').map(Number);
+      const currentMinutes = nowIST.getHours() * 60 + nowIST.getMinutes();
+      const openMinutes = openH * 60 + openM;
+      const closeMinutes = closeH * 60 + closeM;
+
+      let inHours = false;
+      if (openMinutes <= closeMinutes) {
+        inHours = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+      } else {
+        inHours = currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+      }
+
+      if (!inHours) {
+        return {
+          isOpen: false,
+          reason: `Tea Bhatti is currently closed. Today's hours: ${businessConfig.openingTime} to ${businessConfig.closingTime}.`,
+          type: 'hours',
+        };
+      }
+    }
+
+    return { isOpen: true };
+  }, [businessConfig]);
 
   useEffect(() => {
     loadCategories();
@@ -303,6 +352,24 @@ export default function Menu() {
           Freshly prepared 100% vegetarian bites and beverages.
         </p>
       </div>
+
+      {/* Store Closed / Paused Notice */}
+      {!storeStatus.isOpen && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              <strong>Store Notice:</strong> {storeStatus.reason} You can still browse our menu, but online ordering is temporarily paused.
+            </span>
+          </div>
+          <a
+            href="tel:+917000748920"
+            className="text-[11px] font-bold text-amber-900 underline shrink-0 hover:text-amber-950"
+          >
+            Call Us (+91 7000748920)
+          </a>
+        </div>
+      )}
 
       {/* Render Server Cold-Start Notice */}
       {slowLoadWarning && loading && (

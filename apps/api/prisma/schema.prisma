@@ -28,6 +28,9 @@ model Business {
   qrCodeUrl        String?
   phoneNumber      String
   whatsappNumber   String
+  isAcceptingOrders Boolean @default(true)
+  closureReason    String?
+  closedDays       String[] @default([])
   createdAt        DateTime @default(now())
 
   // Relations

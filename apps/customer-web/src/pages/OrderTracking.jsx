@@ -26,7 +26,8 @@ import {
   CreditCard,
   Lock,
   RefreshCw,
-  MessageCircle
+  MessageCircle,
+  X
 } from 'lucide-react';
 import api, { SOCKET_URL } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -63,6 +64,25 @@ export default function OrderTracking() {
   // Cancellation & refund state
   const [cancelling, setCancelling] = useState(false);
   const [cancelNotice, setCancelNotice] = useState(null);
+  const [cancelSecondsLeft, setCancelSecondsLeft] = useState(0);
+  const [showRefundPolicyModal, setShowRefundPolicyModal] = useState(false);
+
+  // 5-minute cancellation window countdown
+  useEffect(() => {
+    if (!order?.createdAt || order.status === 'cancelled' || order.status === 'delivered') return;
+
+    const updateTimer = () => {
+      const orderCreatedTime = new Date(order.createdAt).getTime();
+      const fiveMinutesMs = 5 * 60 * 1000;
+      const elapsed = Date.now() - orderCreatedTime;
+      const remaining = Math.max(0, Math.floor((fiveMinutesMs - elapsed) / 1000));
+      setCancelSecondsLeft(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [order?.createdAt, order?.status]);
 
   // Counter QR Modal state
   const [balanceQrData, setBalanceQrData] = useState(null);
@@ -255,8 +275,12 @@ export default function OrderTracking() {
   const isReady = order.status === 'ready';
   const isDelivered = order.status === 'delivered';
   
-  // Strict cancellation rule: Customer can cancel ONLY before preparing starts!
-  const canCancel = ['received', 'accepted'].includes(order.status);
+  // Strict cancellation rule: Customer can cancel ONLY within 5 minutes AND before preparing starts!
+  const isWithinFiveMinutes = cancelSecondsLeft > 0;
+  const canCancelOnline = ['received', 'accepted'].includes(order.status) && isWithinFiveMinutes;
+  const cancelMinutes = Math.floor(cancelSecondsLeft / 60);
+  const cancelSeconds = cancelSecondsLeft % 60;
+  const cancelCountdownStr = `${cancelMinutes}:${cancelSeconds < 10 ? '0' : ''}${cancelSeconds}`;
 
   const advancePaid = ['advance_paid', 'fully_paid', 'verified'].includes(order.paymentStatus);
   const advanceAmount = order.advanceAmount || Math.round(order.total * 0.20);
@@ -274,14 +298,22 @@ export default function OrderTracking() {
         >
           <ArrowLeft className="w-4 h-4" /> Back to My Orders
         </Link>
-        <button
-          onClick={handleOpenReceipt}
-          disabled={loadingReceipt}
-          className="btn-outline px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5"
-        >
-          <Receipt className="w-3.5 h-3.5" />
-          {loadingReceipt ? 'Loading...' : 'Digital Receipt'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRefundPolicyModal(true)}
+            className="text-xs font-bold text-primary hover:underline px-2.5 py-1.5 rounded-xl border border-primary/20 hover:bg-primary/5 transition-colors"
+          >
+            Refund Policy
+          </button>
+          <button
+            onClick={handleOpenReceipt}
+            disabled={loadingReceipt}
+            className="btn-outline px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5"
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            {loadingReceipt ? 'Loading...' : 'Digital Receipt'}
+          </button>
+        </div>
       </div>
 
       {/* 10-Minute Pre-Ready Notification Banner */}
@@ -558,36 +590,76 @@ export default function OrderTracking() {
           ))}
         </div>
 
-        {/* Cancellation Eligibility vs Preparation Lockout Rule */}
-        {canCancel && (
-          <div className="pt-4 border-t border-border-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-red-50/50 p-4 rounded-2xl">
-            <div className="text-xs text-red-900">
-              <span className="font-bold block">Need to cancel?</span>
-              <span className="text-[11px] text-red-700">
-                You can cancel before kitchen preparation starts. Once the chef marks the order as "preparing", cancellation is locked.
-              </span>
+        {/* Cancellation Section with 5-min timer & preparation lockout */}
+        {!isCancelled && !isDelivered && (
+          canCancelOnline ? (
+            <div className="pt-4 border-t border-border-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-red-50/60 border border-red-200/80 p-4 rounded-2xl animate-fade-in">
+              <div className="text-xs text-red-950 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-red-900 flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5 text-red-700 animate-spin" /> Need to cancel?
+                  </span>
+                  <span className="font-mono font-black text-xs px-2 py-0.5 rounded-full bg-red-200 text-red-900 border border-red-300">
+                    ⏱️ {cancelCountdownStr} left
+                  </span>
+                </div>
+                <p className="text-[11px] text-red-800">
+                  Online cancellation is available only within the first 5 minutes of placing your order. Once the kitchen starts cooking, online cancellation is closed.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowRefundPolicyModal(true)}
+                  className="text-[10px] text-primary hover:underline font-bold inline-block"
+                >
+                  View Full Refund Policy →
+                </button>
+              </div>
+              <button
+                onClick={handleCancelOrder}
+                disabled={cancelling}
+                className="btn-outline border-error text-error hover:bg-error hover:text-white px-4 py-2 text-xs font-bold shrink-0 transition-colors rounded-xl shadow-xs"
+              >
+                {cancelling ? 'Processing...' : 'Cancel Order (Instant Refund)'}
+              </button>
             </div>
-            <button
-              onClick={handleCancelOrder}
-              disabled={cancelling}
-              className="btn-outline border-error text-error hover:bg-error hover:text-white px-4 py-2 text-xs font-bold shrink-0 transition-colors"
-            >
-              {cancelling ? 'Processing...' : 'Cancel Order & Process Refund'}
-            </button>
-          </div>
-        )}
+          ) : (
+            <div className="pt-4 border-t border-border-subtle p-4 sm:p-5 rounded-2xl bg-amber-50/90 border border-amber-300/80 text-xs space-y-3 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-200/80 flex items-center justify-center text-amber-900 shrink-0 mt-0.5">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <span className="font-bold text-amber-950 block text-sm">
+                    {isPreparing ? 'Kitchen Preparation in Progress · Online Cancellation Closed' : '5-Minute Grace Window Closed · Online Cancellation Locked'}
+                  </span>
+                  <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                    {isPreparing
+                      ? 'Our chef is actively cooking your fresh items. In accordance with store policy, orders cannot be cancelled online once kitchen preparation starts.'
+                      : 'The 5-minute online cancellation window has closed as your order has been queued for kitchen preparation.'}
+                  </p>
+                  <p className="text-[11px] font-bold text-red-800">
+                    If you still wish to cancel, you are required to call us directly. Please note: No refunds will be provided once food preparation has started.
+                  </p>
+                </div>
+              </div>
 
-        {/* Lockout Notice when Preparing */}
-        {isPreparing && (
-          <div className="pt-4 border-t border-border-subtle p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs space-y-1">
-            <span className="font-bold text-amber-900 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-amber-700" />
-              Kitchen Preparation in Progress — Cancellation Closed
-            </span>
-            <p className="text-[11px] text-text-secondary">
-              Our chef is actively preparing your order. In accordance with store policy, orders cannot be cancelled once cooking starts.
-            </p>
-          </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200">
+                <a
+                  href="tel:+917000748920"
+                  className="btn-primary bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl shadow-xs"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Call Store to Request (+91 7000748920)
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowRefundPolicyModal(true)}
+                  className="btn-outline border-amber-400 text-amber-900 hover:bg-amber-100/70 px-3.5 py-2 text-xs font-bold rounded-xl"
+                >
+                  View Refund Policy
+                </button>
+              </div>
+            </div>
+          )
         )}
       </div>
 
@@ -706,6 +778,69 @@ export default function OrderTracking() {
           receipt={receiptData}
           onClose={() => setReceiptData(null)}
         />
+      )}
+
+      {/* Cancellation & Refund Policy Modal */}
+      {showRefundPolicyModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="card max-w-lg w-full p-6 bg-white shadow-2xl rounded-3xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <h3 className="font-heading font-black text-lg text-text-primary">
+                  Cancellation & Refund Policy
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowRefundPolicyModal(false)}
+                className="p-1 text-text-secondary hover:text-text-primary rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-text-secondary leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1">
+                <span className="font-bold block text-emerald-900 text-sm">1. 5-Minute Free Cancellation Window</span>
+                <p className="text-xs text-emerald-800">
+                  Customers can cancel any order directly within the first <strong>5 minutes</strong> of placing it. When cancelled within this grace window, your 20% advance payment is automatically refunded.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 space-y-1">
+                <span className="font-bold block text-amber-900 text-sm">2. Kitchen Preparation Lockout</span>
+                <p className="text-xs text-amber-800">
+                  Because Tea Bhatti prepares each meal fresh to order, online cancellation is locked once the chef begins cooking (status marked as <strong>Preparing</strong>).
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-950 space-y-1">
+                <span className="font-bold block text-red-900 text-sm">3. Call Required & No Refunds Once Cooking Begins</span>
+                <p className="text-xs text-red-800">
+                  If you still wish to request a cancellation after preparation has begun, you must call Tea Bhatti directly at <strong className="text-red-950">+91 7000748920</strong>. In accordance with food hygiene and waste policies, <strong>no refunds will be provided once preparation has started</strong>.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-bg-base border border-border-subtle text-text-primary space-y-1">
+                <span className="font-bold block text-sm">4. Refund Reference Tracking</span>
+                <p className="text-xs text-text-secondary">
+                  Eligible cancelled orders receive an official reference code (<code>REF-TB-XXXXXX</code>) to verify and track your refund status directly with Tea Bhatti management.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowRefundPolicyModal(false)}
+                className="btn-primary w-full py-2.5 text-xs font-bold rounded-xl"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

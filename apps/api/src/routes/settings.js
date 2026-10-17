@@ -36,9 +36,13 @@ router.get('/default-business', async (req, res) => {
       closingTime: business.closingTime,
       upiId: business.upiId,
       phoneNumber: business.phoneNumber,
+      whatsappNumber: business.whatsappNumber || business.phoneNumber,
+      isAcceptingOrders: business.isAcceptingOrders !== undefined ? Boolean(business.isAcceptingOrders) : true,
+      closureReason: business.closureReason || null,
+      closedDays: Array.isArray(business.closedDays) ? business.closedDays : [],
     };
 
-    cache.set(cacheKey, payload, 600); // 10 min cache
+    cache.set(cacheKey, payload, 60); // 1 min cache for quick response to status toggles
     res.setHeader('X-Cache', 'MISS');
     res.json(payload);
   } catch (err) {
@@ -85,6 +89,9 @@ const updateSettingsSchema = z.object({
   gstNumber: z.string().nullish(),
   phoneNumber: z.string().nullish(),
   whatsappNumber: z.string().nullish(),
+  isAcceptingOrders: z.boolean().nullish(),
+  closureReason: z.string().nullish(),
+  closedDays: z.array(z.string()).nullish(),
 });
 
 // ── GET /settings ──
@@ -132,6 +139,9 @@ router.put('/',
         gstNumber,
         phoneNumber,
         whatsappNumber,
+        isAcceptingOrders,
+        closureReason,
+        closedDays,
       } = req.body;
 
       if (name !== undefined && name !== null) data.name = String(name).trim();
@@ -151,6 +161,11 @@ router.put('/',
       if (gstNumber !== undefined) data.gstNumber = gstNumber ? String(gstNumber).trim() : null;
       if (phoneNumber !== undefined && phoneNumber !== null) data.phoneNumber = String(phoneNumber).trim();
       if (whatsappNumber !== undefined && whatsappNumber !== null) data.whatsappNumber = String(whatsappNumber).trim();
+
+      // Store Availability & Emergency Toggle
+      if (isAcceptingOrders !== undefined) data.isAcceptingOrders = Boolean(isAcceptingOrders);
+      if (closureReason !== undefined) data.closureReason = closureReason ? String(closureReason).trim() : null;
+      if (closedDays !== undefined && Array.isArray(closedDays)) data.closedDays = closedDays;
 
       // Resolve business ID safely to prevent "No record was found for an update"
       let business = await req.prisma.business.findUnique({

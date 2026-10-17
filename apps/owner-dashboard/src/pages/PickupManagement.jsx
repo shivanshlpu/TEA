@@ -206,7 +206,9 @@ export default function PickupManagement() {
   const activeOrders = orders.filter(o => o.status !== 'cancelled' && o.status !== 'delivered');
   const readyOrders = orders.filter(o => o.status === 'ready');
   const totalOutstandingBalance = activeOrders.reduce((sum, o) => sum + (o.balanceAmount || Math.round(o.total * 0.8)), 0);
-  const totalAdvanceCollected = orders.filter(o => ['advance_paid', 'fully_paid', 'verified'].includes(o.paymentStatus)).reduce((sum, o) => sum + (o.advanceAmount || Math.round(o.total * 0.2)), 0);
+  const totalAdvanceCollected = orders
+    .filter(o => ['advance_paid', 'fully_paid', 'verified'].includes(o.paymentStatus) || ['accepted', 'preparing', 'ready', 'delivered'].includes(o.status))
+    .reduce((sum, o) => sum + (o.advanceAmount || Math.round(o.total * 0.2)), 0);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -379,6 +381,7 @@ export default function PickupManagement() {
             const isReady = order.status === 'ready';
             const isPreparing = order.status === 'preparing';
             const isAdvancePaid = ['advance_paid', 'fully_paid', 'verified'].includes(order.paymentStatus);
+            const isAdvanceVerified = isAdvancePaid || ['accepted', 'preparing', 'ready', 'delivered'].includes(order.status);
             const isCancelled = order.status === 'cancelled';
 
             return (
@@ -450,11 +453,22 @@ export default function PickupManagement() {
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-semibold text-emerald-800 flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Paid Advance (20% Upfront):
+                      Advance (20% Upfront):
                     </span>
-                    <span className="font-mono font-black text-emerald-700">
-                      ₹{advance}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {isAdvanceVerified ? (
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-700" /> Verified
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                          Unverified
+                        </span>
+                      )}
+                      <span className="font-mono font-black text-emerald-700">
+                        ₹{advance}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center text-xs pt-1.5 border-t border-border-subtle/70">
@@ -480,8 +494,8 @@ export default function PickupManagement() {
                   ))}
                 </div>
 
-                {/* Customer Submitted UTR Verification Box */}
-                {order.paymentStatus === 'utr_submitted' && !isCancelled && (
+                {/* Customer Submitted UTR Verification Box (Shown only if not yet verified) */}
+                {order.paymentStatus === 'utr_submitted' && !isCancelled && !isAdvanceVerified && (
                   <div className="p-3 my-2 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fade-in">
                     <div>
                       <span className="font-bold text-blue-900 block">Customer Submitted Payment UTR:</span>
