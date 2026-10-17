@@ -4,7 +4,7 @@ export function registerServiceWorker() {
     return;
   }
 
-  window.addEventListener('load', () => {
+  const doRegister = () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
@@ -33,5 +33,11 @@ export function registerServiceWorker() {
         window.location.reload();
       }
     });
-  });
+  };
+
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    doRegister();
+  } else {
+    window.addEventListener('load', doRegister);
+  }
 }

@@ -46,6 +46,7 @@ export function NotificationSoundProvider({ children }) {
     return typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied';
   });
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
 
   const audioCtxRef = useRef(null);
@@ -311,53 +312,126 @@ export function NotificationSoundProvider({ children }) {
     setActiveBanner(null);
   };
 
-  // ── Web Push Subscription ──
-  const requestPermissionAndSubscribe = async () => {
+  // ── Auto-sync active push subscription on dashboard load ──
+  useEffect(() => {
+    if (!user || typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return;
+    }
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then(async (reg) => {
+        try {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            setIsSubscribed(true);
+            // Silently sync device subscription into MongoDB Atlas
+            apiFetch('/notifications/push/subscribe', {
+              method: 'POST',
+              body: { subscription: sub },
+            }).catch(() => {});
+          } else {
+            setIsSubscribed(false);
+          }
+        } catch (err) {
+          console.warn('Silent push sync check:', err);
+        }
+      }).catch(() => {});
+    }
+  }, [user, apiFetch]);
+
+  // ── Web Push Subscription & Device Registration ──
+  const requestPermissionAndSubscribe = async (isManualClick = true) => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
-      toast.error('This browser does not support Web Push notifications.');
+      if (isManualClick) toast.error('This browser does not support Web Push notifications.');
       return false;
+    }
+
+    // Check iOS PWA requirement
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    if (isIOS && !isStandalone && isManualClick) {
+      toast.info('📱 Note for iPhone/iPad: To receive alerts when the screen is locked, tap Share (bottom bar) ➔ "Add to Home Screen".');
     }
 
     setIsSubscribing(true);
     try {
       getAudioContext(); // Unlock audio context on tap
 
-      const perm = await Notification.requestPermission();
-      setPermission(perm);
+      let perm = Notification.permission;
+      if (perm !== 'granted') {
+        perm = await Notification.requestPermission();
+        setPermission(perm);
+      } else {
+        setPermission('granted');
+      }
 
       if (perm !== 'granted') {
-        toast.error('Notification permission was not granted. Please allow notifications in site settings.');
+        setIsSubscribed(false);
+        if (isManualClick) toast.error('Notification permission was not granted. Please allow notifications in your browser/device settings.');
         return false;
       }
 
-      // Fetch VAPID key
+      // Fetch VAPID public key
       const { publicKey } = await apiFetch('/notifications/push/vapid-key');
-      if (!publicKey) throw new Error('VAPID public key unavailable');
+      if (!publicKey) throw new Error('VAPID public key unavailable from server');
 
-      // Wait for service worker
-      const registration = await navigator.serviceWorker.ready;
-      if (!registration || !registration.pushManager) {
-        throw new Error('Service Worker Push Manager not available');
+      // Ensure service worker is registered & active
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      }
+      await navigator.serviceWorker.ready;
+
+      if (!registration.pushManager) {
+        throw new Error('Service Worker Push Manager is not supported or active on this browser');
       }
 
-      // Subscribe device to push
-      const subscription = await registration.pushManager.subscribe({
+      // Check existing subscription
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (subscription) {
+        try {
+          // Sync existing subscription to MongoDB Atlas
+          await apiFetch('/notifications/push/subscribe', {
+            method: 'POST',
+            body: { subscription },
+          });
+          setIsSubscribed(true);
+          if (isManualClick) {
+            toast.success('🔔 Phone alerts re-synchronized & registered successfully!');
+            playAlertSound();
+          }
+          return true;
+        } catch (syncErr) {
+          console.warn('Existing subscription could not be synced, renewing:', syncErr);
+          try {
+            await subscription.unsubscribe();
+          } catch (_) {}
+          subscription = null;
+        }
+      }
+
+      // If no valid subscription exists, create fresh
+      const newSub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
-      // Send to server
+      // Save to MongoDB Atlas
       await apiFetch('/notifications/push/subscribe', {
         method: 'POST',
-        body: { subscription },
+        body: { subscription: newSub },
       });
 
-      toast.success('🔔 Order & payment push notifications enabled successfully!');
-      playAlertSound();
+      setIsSubscribed(true);
+      if (isManualClick) {
+        toast.success('🔔 Phone alerts registered & enabled successfully!');
+        playAlertSound();
+      }
       return true;
     } catch (err) {
       console.error('Push subscription failed:', err);
-      toast.error('Could not activate push notifications: ' + err.message);
+      if (isManualClick) toast.error('Could not activate push notifications: ' + (err.message || 'Unknown error'));
       return false;
     } finally {
       setIsSubscribing(false);
@@ -442,6 +516,7 @@ export function NotificationSoundProvider({ children }) {
       playAlertSound,
       permission,
       isSubscribing,
+      isSubscribed,
       requestPermissionAndSubscribe,
       activeBanner,
       dismissBanner,

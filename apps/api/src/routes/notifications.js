@@ -112,11 +112,11 @@ router.post('/push/subscribe', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Valid subscription object required' });
     }
     const businessId = req.user.businessId || 'default';
-    const result = subscribeUser(subscription, businessId, req.user.role);
+    const result = await subscribeUser(subscription, businessId, req.user.role || 'owner', req.prisma);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Push subscribe error:', err);
-    res.status(500).json({ error: 'Failed to save push subscription' });
+    res.status(500).json({ error: 'Failed to save push subscription: ' + err.message });
   }
 });
 
@@ -124,7 +124,7 @@ router.post('/push/subscribe', authenticate, async (req, res) => {
 router.post('/push/unsubscribe', async (req, res) => {
   try {
     const { endpoint } = req.body;
-    const result = unsubscribeUser(endpoint);
+    const result = await unsubscribeUser(endpoint, req.prisma);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Push unsubscribe error:', err);
@@ -133,16 +133,17 @@ router.post('/push/unsubscribe', async (req, res) => {
 });
 
 // POST /notifications/push/test — Send test push notification (owner only)
-router.post('/push/test', authenticate, authorize('owner', 'manager'), async (req, res) => {
+router.post('/push/test', authenticate, authorize('owner', 'manager', 'cashier'), async (req, res) => {
   try {
     const businessId = req.user.businessId || 'default';
     const result = await sendPushToBusiness(businessId, {
       title: 'Tea Bhatti Test Alert ☕',
-      body: 'Web Push is working perfectly on your device!',
+      body: 'Web Push is working! Your phone is connected to Tea Bhatti order alerts.',
       icon: '/icons/icon-192x192.png',
       badge: '/icons/favicon.png',
+      tag: 'test-push',
       data: { url: '/orders' },
-    });
+    }, req.prisma);
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('Push test error:', err);

@@ -267,3 +267,16 @@ model Employee {
   user     User     @relation(fields: [userId], references: [id])
   business Business @relation(fields: [businessId], references: [id])
 }
+
+// ── Persistent Web Push Subscriptions (MongoDB Atlas) ─────────
+model DeviceSubscription {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  endpoint     String   @unique
+  businessId   String   @default("default")
+  userRole     String   @default("owner")
+  subscription String   // JSON string of subscription endpoint and keys
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([businessId])
+}

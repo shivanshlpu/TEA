@@ -299,7 +299,7 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
       badge: '/icons/favicon.png',
       tag: `order-${order.id}`,
       data: { url: '/orders', orderId: order.id },
-    }).catch(e => console.warn('[Push] Background push error:', e.message));
+    }, req.prisma).catch(e => console.warn('[Push] Background push error:', e.message));
 
     // Fire & forget WhatsApp to Owner
     sendWhatsAppTemplate(
@@ -805,7 +805,7 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       tag: `utr-${updated.id}`,
       requireInteraction: true,
       data: { url: '/orders', type: 'utr_submitted', orderId: updated.id, pickupCode: updated.pickupCode },
-    }).catch(e => console.warn('[Push] Background push error on UTR submit:', e.message));
+    }, req.prisma).catch(e => console.warn('[Push] Background push error on UTR submit:', e.message));
 
     // Notify customer order room
     req.io.to(`order:${updated.id}`).emit('payment-update', {
@@ -900,7 +900,7 @@ router.patch('/:id/payment/verify',
         tag: `verify-${updated.id}`,
         requireInteraction: true,
         data: { url: '/orders', type: 'payment_verified', orderId: updated.id },
-      }).catch(e => console.warn('[Push] Background push error on verify:', e.message));
+      }, req.prisma).catch(e => console.warn('[Push] Background push error on verify:', e.message));
 
       res.json({
         success: true,

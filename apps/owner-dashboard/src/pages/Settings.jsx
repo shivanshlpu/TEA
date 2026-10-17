@@ -46,6 +46,7 @@ export default function Settings() {
     playAlertSound,
     permission,
     isSubscribing,
+    isSubscribed,
     requestPermissionAndSubscribe,
   } = useNotificationSound();
 
@@ -72,9 +73,9 @@ export default function Settings() {
     try {
       const res = await apiFetch('/notifications/push/test', { method: 'POST' });
       if (res && res.sent > 0) {
-        toast.success(`Test push sent to ${res.sent} device(s)! Lock your phone to verify lock screen alert.`);
+        toast.success(`✅ Test alert sent to ${res.sent} registered device(s)! Lock your phone to verify lock screen alert.`);
       } else {
-        toast.info('Push dispatched. Click "Enable Phone Alerts" if this device is not yet registered.');
+        toast.error('⚠️ No active devices registered on server. Click "Re-register / Sync Phone Alerts" to register this device.');
       }
     } catch (err) {
       toast.error('Test push error: ' + err.message);
@@ -410,22 +411,45 @@ export default function Settings() {
               </p>
             </div>
 
-            {/* Permission Status Pill */}
-            <div className="flex items-center gap-2">
+            {/* Permission Status Pill & Re-sync Button */}
+            <div className="flex flex-wrap items-center gap-2">
               {permission === 'granted' ? (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Web Push Active
-                </span>
+                <>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    {isSubscribed ? 'Web Push Active' : 'Permission Allowed'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => requestPermissionAndSubscribe(true)}
+                    disabled={isSubscribing}
+                    className="btn-outline text-xs py-1.5 px-3 flex items-center gap-1.5 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 font-semibold shadow-2xs"
+                    title="Re-register this device with the push notification server"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSubscribing ? 'animate-spin' : ''}`} />
+                    {isSubscribing ? 'Syncing...' : 'Re-register / Sync Phone Alerts'}
+                  </button>
+                </>
               ) : permission === 'denied' ? (
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                  Notifications Blocked
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                    Notifications Blocked
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => requestPermissionAndSubscribe(true)}
+                    disabled={isSubscribing}
+                    className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-xs"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    {isSubscribing ? 'Enabling...' : 'Retry Phone Alerts'}
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
-                  onClick={requestPermissionAndSubscribe}
+                  onClick={() => requestPermissionAndSubscribe(true)}
                   disabled={isSubscribing}
                   className="btn-primary text-xs py-1.5 px-3 flex items-center gap-1.5 shadow-xs"
                 >
