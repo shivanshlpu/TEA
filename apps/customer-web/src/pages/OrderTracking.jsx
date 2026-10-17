@@ -67,6 +67,10 @@ export default function OrderTracking() {
   const [cancelSecondsLeft, setCancelSecondsLeft] = useState(0);
   const [showRefundPolicyModal, setShowRefundPolicyModal] = useState(false);
 
+  // UTR Re-submission state
+  const [resubmitUtr, setResubmitUtr] = useState('');
+  const [submittingUtr, setSubmittingUtr] = useState(false);
+
   // 5-minute cancellation window countdown
   useEffect(() => {
     if (!order?.createdAt || order.status === 'cancelled' || order.status === 'delivered') return;
@@ -113,7 +117,12 @@ export default function OrderTracking() {
 
     socket.on('order-status-update', (data) => {
       if (data.orderId === orderId) {
-        setOrder(prev => prev ? { ...prev, ...data } : prev);
+        setOrder(prev => prev ? {
+          ...prev,
+          ...data,
+          cancelledBy: data.cancelledBy || prev.cancelledBy,
+          paymentRejectReason: data.paymentRejectReason !== undefined ? data.paymentRejectReason : prev.paymentRejectReason,
+        } : prev);
         
         // Trigger celebration on Ready or Delivered
         if ((data.status === 'ready' || data.status === 'delivered') && !hasCelebratedReady) {
@@ -137,7 +146,12 @@ export default function OrderTracking() {
 
     socket.on('payment-update', (data) => {
       if (data.orderId === orderId) {
-        setOrder(prev => prev ? { ...prev, paymentStatus: data.paymentStatus } : prev);
+        setOrder(prev => prev ? {
+          ...prev,
+          paymentStatus: data.paymentStatus,
+          paymentUtr: data.paymentUtr !== undefined ? data.paymentUtr : prev.paymentUtr,
+          paymentRejectReason: data.paymentRejectReason !== undefined ? data.paymentRejectReason : prev.paymentRejectReason,
+        } : prev);
         if (data.paymentStatus === 'verified') {
           firePaymentCelebration();
         }
@@ -169,6 +183,32 @@ export default function OrderTracking() {
       setError(err.message || 'Failed to load order');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Handle UTR Re-submission after payment rejection
+  async function handleResubmitUtr(e) {
+    if (e) e.preventDefault();
+    const clean = resubmitUtr.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    if (clean.length < 6) {
+      toast.error('Please enter a valid 12-digit UTR reference number');
+      return;
+    }
+    setSubmittingUtr(true);
+    try {
+      const res = await api.submitUtr(orderId, { utr: clean }, token);
+      toast.success(res.message || 'UTR re-submitted! The cafe owner has been notified to verify.');
+      setOrder(prev => prev ? {
+        ...prev,
+        paymentStatus: 'utr_submitted',
+        paymentUtr: clean,
+        paymentRejectReason: null,
+      } : prev);
+      setResubmitUtr('');
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit UTR');
+    } finally {
+      setSubmittingUtr(false);
     }
   }
 
@@ -388,9 +428,23 @@ export default function OrderTracking() {
             </span>
             <div className="flex items-center justify-between">
               <span className="text-xl font-mono font-black text-emerald-700">₹{advanceAmount}</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 flex items-center gap-1">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                advancePaid 
+                  ? 'bg-emerald-200 text-emerald-900' 
+                  : (order.paymentStatus === 'rejected' || order.paymentStatus === 'failed')
+                  ? 'bg-rose-200 text-rose-950 font-black border border-rose-300'
+                  : order.paymentStatus === 'utr_submitted'
+                  ? 'bg-blue-100 text-blue-900'
+                  : 'bg-amber-100 text-amber-900'
+              }`}>
                 <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                {advancePaid ? 'Verified & Confirmed' : order.paymentStatus === 'utr_submitted' ? 'UTR Verification Pending' : 'Pending'}
+                {advancePaid 
+                  ? 'Verified & Confirmed' 
+                  : order.paymentStatus === 'utr_submitted' 
+                  ? 'UTR Verification Pending' 
+                  : (order.paymentStatus === 'rejected' || order.paymentStatus === 'failed')
+                  ? 'Payment Rejected'
+                  : 'Pending'}
               </span>
             </div>
             {order.paymentUtr && (
@@ -425,6 +479,89 @@ export default function OrderTracking() {
             </p>
           </div>
         </div>
+
+        {/* Payment Rejected Alert & Dedicated UTR Re-entry Form */}
+        {(order.paymentStatus === 'rejected' || order.paymentStatus === 'failed') && !isCancelled && (
+          <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-red-50 to-amber-50 border-2 border-rose-300 text-rose-950 space-y-3 animate-fade-in shadow-md">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-200 flex items-center justify-center text-rose-800 shrink-0 mt-0.5 shadow-xs">
+                <AlertTriangle className="w-5 h-5 text-rose-700" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-heading font-black text-rose-900 text-sm sm:text-base">
+                    Payment Rejected by Cafe
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900 border border-rose-300 uppercase">
+                    Action Required
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-rose-900 leading-relaxed">
+                  {order.paymentRejectReason || 'Payment rejected by cafe: Please check your UTR number and try again.'}
+                </p>
+                <p className="text-[11px] text-rose-800">
+                  Please verify the 12-digit UTR reference from your UPI payment app (Google Pay, PhonePe, Paytm, BHIM) and re-submit it below. Once submitted, the cafe owner will immediately see the updated UTR on their dashboard to verify your payment.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleResubmitUtr} className="pt-2 flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={resubmitUtr}
+                onChange={(e) => setResubmitUtr(e.target.value.toUpperCase())}
+                placeholder="Enter correct 12-digit UPI / UTR number"
+                maxLength={30}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-rose-300 bg-white font-mono text-xs sm:text-sm font-bold text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-inner"
+                required
+              />
+              <button
+                type="submit"
+                disabled={submittingUtr || !resubmitUtr.trim()}
+                className="btn-primary bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shrink-0 transition-colors shadow-sm disabled:opacity-50"
+              >
+                {submittingUtr ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Re-submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Re-submit UTR
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* UTR Submitted Pending Verification Alert */}
+        {order.paymentStatus === 'utr_submitted' && !isCancelled && (
+          <div className="mt-4 p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-blue-950 flex items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+              <div>
+                <p className="font-bold text-xs text-blue-900">
+                  UTR #{order.paymentUtr} Submitted for Verification
+                </p>
+                <p className="text-[11px] text-blue-700">
+                  Tea Bhatti staff has received your payment reference and will verify it momentarily.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setResubmitUtr(order.paymentUtr || '');
+                setOrder(prev => ({ ...prev, paymentStatus: 'rejected' }));
+              }}
+              className="text-[11px] font-bold text-blue-800 hover:underline shrink-0"
+              title="Need to update UTR?"
+            >
+              Edit UTR
+            </button>
+          </div>
+        )}
 
         {/* Counter Ready Announcement */}
         {isReady && (
@@ -500,17 +637,54 @@ export default function OrderTracking() {
           </div>
         </div>
       ) : (
-        /* Cancelled State Card with Dedicated Refund Code */
-        <div className="card p-6 border-2 border-red-300 bg-red-50/50 space-y-4">
-          <div className="flex items-center gap-3 text-red-900">
-            <XCircle className="w-6 h-6 text-red-600 shrink-0" />
-            <div>
-              <h2 className="font-heading font-bold text-lg">Order Cancelled</h2>
-              <p className="text-xs text-red-700">This order has been cancelled and will not be prepared.</p>
+        /* Cancelled State Card with Dedicated Refund Code & Admin Cancellation 100% Refund Guarantee */
+        <div className={`card p-6 border-2 space-y-4 ${
+          order.cancelledBy === 'admin'
+            ? 'border-red-400 bg-gradient-to-br from-red-50 via-rose-50 to-amber-50/50 shadow-md'
+            : 'border-red-300 bg-red-50/50'
+        }`}>
+          <div className="flex items-start gap-3.5 text-red-900">
+            <div className="w-11 h-11 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0 mt-0.5 shadow-xs">
+              <XCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-heading font-black text-lg sm:text-xl text-red-950">
+                  {order.cancelledBy === 'admin' ? 'Cancelled by the Cafe Admin' : 'Order Cancelled'}
+                </h2>
+                {order.cancelledBy === 'admin' && (
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-red-600 text-white shadow-xs">
+                    Admin Action
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-red-900 leading-relaxed">
+                {order.cancelledBy === 'admin'
+                  ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+                  : 'This order has been cancelled and will not be prepared.'}
+              </p>
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-red-200 text-xs space-y-2.5">
+          {/* Prominent 100% Full Refund 1-Hour Guarantee Banner for Admin Cancellations */}
+          {order.cancelledBy === 'admin' && (
+            <div className="p-4 rounded-2xl bg-emerald-50/90 border-2 border-emerald-300 text-emerald-950 space-y-2 animate-fade-in shadow-xs">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  100% Full Refund Guaranteed
+                </div>
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 border border-emerald-300 flex items-center gap-1 font-mono">
+                  <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processed within 1 hour
+                </span>
+              </div>
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                Since this order was cancelled by the cafe admin, you are entitled to a <strong>100% full refund of ₹{order.total || order.refundAmount || advanceAmount}.00</strong>. No cancellation fees apply. Your refund has been scheduled and will reach your account within <strong>one hour</strong>.
+              </p>
+            </div>
+          )}
+
+          <div className="p-4 rounded-2xl bg-white border border-red-200 text-xs space-y-2.5 shadow-inner">
             <div className="flex justify-between items-center font-bold text-text-primary">
               <span className="text-text-secondary">Refund Reference Code:</span>
               <span className="font-mono text-sm px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg border border-amber-300">
@@ -519,14 +693,23 @@ export default function OrderTracking() {
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">Refund Status:</span>
-              <span className="text-emerald-700 font-bold uppercase">{order.refundStatus || 'Refunded'}</span>
+              <span className="text-emerald-700 font-bold uppercase">{order.refundStatus || 'Processing 100% Refund'}</span>
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">Refund Amount:</span>
-              <span className="font-mono font-bold text-emerald-700">₹{order.refundAmount || advanceAmount}.00</span>
+              <span className="font-mono font-bold text-emerald-700 text-sm">
+                ₹{order.cancelledBy === 'admin' ? (order.total || order.refundAmount || advanceAmount) : (order.refundAmount || advanceAmount)}.00
+                {order.cancelledBy === 'admin' ? ' (100% Full Refund)' : ''}
+              </span>
+            </div>
+            <div className="flex justify-between font-semibold text-text-primary">
+              <span className="text-text-secondary">Expected Refund Time:</span>
+              <span className="text-emerald-800 font-bold">Within 1 Hour</span>
             </div>
             <p className="text-[11px] text-text-secondary pt-2 border-t border-border-subtle">
-              This Refund Reference Code (<strong>{refundCode}</strong>) is specifically provided for you and the Tea Bhatti Cafe owner to track and settle your refund.
+              {order.cancelledBy === 'admin'
+                ? `The cafe admin has processed your full refund under code ${refundCode}. You can present this reference if you have any questions.`
+                : `This Refund Reference Code (${refundCode}) is specifically provided for you and the Tea Bhatti Cafe owner to track and settle your refund.`}
             </p>
           </div>
         </div>

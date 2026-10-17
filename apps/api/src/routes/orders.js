@@ -744,13 +744,15 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Order can only be cancelled before kitchen preparation starts.' });
     }
 
-    const refundCode = `REF-TB-${order.id.slice(-6).toUpperCase()}`;
+    const isStaff = ['owner', 'manager', 'cashier'].includes(req.user.role);
+    const cancelledBy = isStaff ? 'admin' : 'customer';
 
     const updated = await req.prisma.$transaction(async (tx) => {
       const ord = await tx.order.update({
         where: { id: req.params.id },
         data: {
           status: 'cancelled',
+          cancelledBy,
           refundCode,
         },
       });
@@ -763,12 +765,17 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
     req.io.to(`order:${updated.id}`).emit('order-status-update', {
       orderId: updated.id,
       status: 'cancelled',
+      cancelledBy,
       refundCode,
+      message: cancelledBy === 'admin'
+        ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+        : undefined,
       timestamp: new Date(),
     });
     req.io.to(`business:${updated.businessId}`).emit('order-updated', {
       orderId: updated.id,
       status: 'cancelled',
+      cancelledBy,
       refundCode,
     });
 
@@ -787,6 +794,11 @@ router.get('/:id/track', optionalAuth, async (req, res) => {
       select: {
         id: true, status: true, orderType: true, createdAt: true,
         businessId: true,
+        paymentStatus: true,
+        paymentUtr: true,
+        paymentRejectReason: true,
+        cancelledBy: true,
+        refundCode: true,
         customer: { select: { userId: true } },
         statusLogs: { orderBy: { timestamp: 'asc' } },
         deliveryTracking: { orderBy: { updatedAt: 'desc' }, take: 1 },
@@ -824,7 +836,7 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       return res.status(403).json({ error: 'You do not have access to submit payment for this order' });
     }
 
-    if (!['pending', 'failed', 'utr_submitted'].includes(order.paymentStatus)) {
+    if (!['pending', 'failed', 'rejected', 'utr_submitted'].includes(order.paymentStatus)) {
       return res.status(400).json({ error: 'Payment already verified or completed' });
     }
 
@@ -847,7 +859,11 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
 
     const updated = await req.prisma.order.update({
       where: { id: req.params.id },
-      data: { paymentUtr: cleanUtr, paymentStatus: 'utr_submitted' },
+      data: {
+        paymentUtr: cleanUtr,
+        paymentStatus: 'utr_submitted',
+        paymentRejectReason: null,
+      },
       include: { customer: { include: { user: true } } },
     });
 
@@ -885,6 +901,7 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       orderId: updated.id,
       paymentStatus: 'utr_submitted',
       paymentUtr: cleanUtr,
+      paymentRejectReason: null,
     });
 
     res.json({
@@ -905,7 +922,7 @@ router.patch('/:id/payment/verify',
   authorize('owner', 'manager', 'cashier'),
   async (req, res) => {
     try {
-      const { action } = req.body; // 'verify' or 'reject'
+      const { action, reason } = req.body; // 'verify' or 'reject'
       const order = await req.prisma.order.findUnique({
         where: { id: req.params.id },
         include: { customer: { include: { user: true } }, business: true },
@@ -915,7 +932,10 @@ router.patch('/:id/payment/verify',
         return res.status(403).json({ error: 'Order does not belong to your business' });
       }
 
-      const newPaymentStatus = action === 'verify' ? 'verified' : 'failed';
+      const newPaymentStatus = action === 'verify' ? 'verified' : 'rejected';
+      const rejectReason = action === 'reject'
+        ? (reason || 'Payment rejected by cafe: Please check your UTR number and try again.')
+        : null;
       // When payment is verified by owner, order automatically advances to accepted
       const newOrderStatus = action === 'verify' && order.status === 'received' ? 'accepted' : order.status;
 
@@ -923,6 +943,7 @@ router.patch('/:id/payment/verify',
         where: { id: req.params.id },
         data: {
           paymentStatus: newPaymentStatus,
+          paymentRejectReason: rejectReason,
           status: newOrderStatus,
           paidAt: action === 'verify' ? new Date() : order.paidAt,
         },
@@ -939,6 +960,7 @@ router.patch('/:id/payment/verify',
       req.io.to(`order:${updated.id}`).emit('payment-update', {
         orderId: updated.id,
         paymentStatus: newPaymentStatus,
+        paymentRejectReason: rejectReason,
         status: updated.status,
       });
 
@@ -946,6 +968,7 @@ router.patch('/:id/payment/verify',
         orderId: updated.id,
         status: updated.status,
         paymentStatus: newPaymentStatus,
+        paymentRejectReason: rejectReason,
         timestamp: new Date(),
       });
 
@@ -954,6 +977,7 @@ router.patch('/:id/payment/verify',
         orderId: updated.id,
         status: updated.status,
         paymentStatus: newPaymentStatus,
+        paymentRejectReason: rejectReason,
       });
 
       req.io.to(`business:${updated.businessId}`).emit('payment-verified', {
@@ -963,6 +987,7 @@ router.patch('/:id/payment/verify',
         action,
         status: updated.status,
         paymentStatus: newPaymentStatus,
+        paymentRejectReason: rejectReason,
       });
 
       sendPushToBusiness(updated.businessId, {
@@ -1296,13 +1321,16 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
     const advanceAmount = order.advanceAmount || Math.round(order.total * 0.20 * 100) / 100;
     const refundCode = `REF-TB-${order.id.slice(-6).toUpperCase()}`;
 
+    const isStaff = ['owner', 'manager', 'cashier'].includes(req.user.role);
+    const cancelledBy = isStaff ? 'admin' : 'customer';
+
     let refundResult = null;
     if (hadAdvance && order.stripePaymentIntentId) {
       // Process Stripe Refund immediately (guaranteed within 1 hr)
       refundResult = await processRefund({
         paymentIntentId: order.stripePaymentIntentId,
         amount: advanceAmount,
-        reason: 'order_cancelled_by_customer',
+        reason: isStaff ? 'order_cancelled_by_admin' : 'order_cancelled_by_customer',
       });
     }
 
@@ -1310,6 +1338,7 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
       where: { id: req.params.id },
       data: {
         status: 'cancelled',
+        cancelledBy,
         refundCode,
         paymentStatus: hadAdvance ? 'refunded' : order.paymentStatus,
         refundStatus: hadAdvance ? 'refunded' : 'none',
@@ -1328,14 +1357,19 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
     req.io.to(`order:${updated.id}`).emit('order-status-update', {
       orderId: updated.id,
       status: 'cancelled',
+      cancelledBy: updated.cancelledBy,
       refundCode: updated.refundCode,
       refundStatus: updated.refundStatus,
       refundAmount: updated.refundAmount,
+      message: cancelledBy === 'admin'
+        ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+        : undefined,
       timestamp: new Date(),
     });
     req.io.to(`business:${updated.businessId}`).emit('order-updated', {
       orderId: updated.id,
       status: 'cancelled',
+      cancelledBy: updated.cancelledBy,
       refundCode: updated.refundCode,
       refundStatus: updated.refundStatus,
     });

@@ -136,14 +136,37 @@ export default function Orders() {
   }
 
   async function verifyPayment(orderId, action = 'verify') {
+    if (action === 'reject') {
+      const confirmed = window.confirm(
+        'Reject this payment?\n\nThe customer will be asked to check their UTR number and try again. Once they re-submit, the Verify and Reject buttons will reappear here.'
+      );
+      if (!confirmed) return;
+    }
     try {
       const res = await apiFetch(`/orders/${orderId}/payment/verify`, {
         method: 'PATCH',
         body: { action },
       });
-      toast.success(res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'Payment rejected'));
+      toast.success(
+        res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'Payment rejected. Customer prompted to check UTR and retry.')
+      );
       loadOrders();
     } catch (err) { toast.error(err.message || 'Failed to verify payment'); }
+  }
+
+  async function handleCancelOrder(order) {
+    const confirmed = window.confirm(
+      `Cancel order #${order.pickupCode || order.id.slice(-4).toUpperCase()}?\n\nThis will cancel the order from the admin side. The customer will be informed that the order was cancelled by the cafe admin, and will be promised a 100% full refund within one hour.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiFetch(`/orders/${order.id}/cancel`, { method: 'PATCH' });
+      toast.info(`Order #${order.pickupCode || order.id.slice(-4).toUpperCase()} cancelled by admin. Customer notified of 100% refund within 1 hour.`);
+      loadOrders();
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel order');
+    }
   }
 
   async function notifyReadySoon(orderId) {
@@ -356,6 +379,16 @@ export default function Orders() {
                       </div>
                     )}
 
+                    {/* Rejected Status Badge awaiting customer UTR re-entry */}
+                    {(order.paymentStatus === 'rejected' || order.paymentStatus === 'failed') && !isCancelled && (
+                      <div className="flex items-center gap-1.5 p-1.5 bg-rose-50 border border-rose-200 rounded-xl">
+                        <span className="text-[11px] font-bold text-rose-800 px-1.5 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                          Payment Rejected (Awaiting Customer UTR)
+                        </span>
+                      </div>
+                    )}
+
                     {!isCancelled && !isDelivered && (
                       <>
                         <button
@@ -412,17 +445,19 @@ export default function Orders() {
                     </button>
 
                     {isCancelled && (
-                      <div className="text-right text-xs">
+                      <div className="text-right text-xs space-y-0.5">
                         <span className="font-mono font-bold text-red-800 px-2 py-0.5 bg-red-100 rounded border border-red-200 block">
                           {order.refundCode || 'REF-TB-' + order.id.slice(-6).toUpperCase()}
                         </span>
-                        <span className="text-[10px] text-text-secondary">Refund Code</span>
+                        <span className="text-[10px] text-red-700 font-bold block">
+                          {order.cancelledBy === 'admin' ? 'Cancelled by Admin (100% Refund in 1 Hr)' : 'Cancelled by Customer'}
+                        </span>
                       </div>
                     )}
 
                     {['received', 'accepted'].includes(order.status) && (
                       <button
-                        onClick={() => apiFetch(`/orders/${order.id}/cancel`, { method: 'PATCH' }).then(loadOrders)}
+                        onClick={() => handleCancelOrder(order)}
                         className="text-xs text-error hover:underline px-2 py-1 font-semibold"
                       >
                         Cancel

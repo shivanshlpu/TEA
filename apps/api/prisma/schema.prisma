@@ -147,6 +147,8 @@ model Order {
   balanceAmount     Float?   @default(0)
   pickupCode        String?
   refundCode        String?
+  cancelledBy       String?  // admin | customer
+  paymentRejectReason String?
   readySoon         Boolean? @default(false)
   readySoonAt       DateTime?
   stripePaymentIntentId String?
