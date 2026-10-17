@@ -16,6 +16,70 @@ import QRCode from 'qrcode';
 
 const router = Router();
 
+// ── 10-Second Unverified Order Follow-up Reminder Tracker ──
+const pendingVerificationTimers = new Map();
+
+export function cancelVerificationFollowUp(orderId) {
+  if (pendingVerificationTimers.has(orderId)) {
+    clearTimeout(pendingVerificationTimers.get(orderId));
+    pendingVerificationTimers.delete(orderId);
+    console.log(`[Follow-up] Verification timer cleared for order ${orderId}`);
+  }
+}
+
+export function scheduleVerificationFollowUp(orderId, businessId, pickupCode, total, io, prisma) {
+  cancelVerificationFollowUp(orderId);
+
+  const timer = setTimeout(async () => {
+    pendingVerificationTimers.delete(orderId);
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { customer: { include: { user: true } } },
+      });
+      if (!order) return;
+
+      const isStillPending = (order.status === 'received' || order.status === 'pending');
+      const isPaymentUnverified = (order.paymentStatus === 'unverified' || order.paymentStatus === 'utr_submitted' || order.paymentStatus === 'pending');
+
+      if (isStillPending || isPaymentUnverified) {
+        const pCode = order.pickupCode || orderId.slice(-4).toUpperCase();
+        console.log(`⚠️ [10s Reminder] Order #${pCode} unverified after 10s. Firing follow-up notification!`);
+
+        const payload = {
+          orderId: order.id,
+          pickupCode: pCode,
+          total: order.total,
+          customerName: order.customer?.user?.name || 'Customer',
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          message: `URGENT: Order #${pCode} (₹${order.total}) has been waiting 10 seconds without verification!`,
+        };
+
+        if (io) {
+          io.to(`business:${businessId}`).emit('order-unverified-followup', payload);
+          io.emit('order-unverified-followup', { ...payload, businessId });
+        }
+
+        sendPushToBusiness(businessId, {
+          title: `⚠️ Action Required: Verify Order #${pCode}!`,
+          body: `Order #${pCode} (₹${order.total}) has not been accepted or verified yet! Please check now.`,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/favicon.png',
+          tag: `followup-${order.id}`,
+          requireInteraction: true,
+          vibrate: [500, 150, 500, 150, 500],
+          data: { url: '/orders', type: 'order_followup', orderId: order.id, pickupCode: pCode },
+        }, prisma).catch(e => console.warn('[Push] Follow-up push error:', e.message));
+      }
+    } catch (err) {
+      console.warn('[Follow-up] Error executing follow-up timer:', err.message);
+    }
+  }, 10000); // 10 seconds
+
+  pendingVerificationTimers.set(orderId, timer);
+}
+
 // ── Schemas ──
 const createOrderSchema = z.object({
   businessId: z.string().optional(),
@@ -300,6 +364,9 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
       tag: `order-${order.id}`,
       data: { url: '/orders', orderId: order.id },
     }, req.prisma).catch(e => console.warn('[Push] Background push error:', e.message));
+
+    // Schedule 10-second follow-up notification if order remains unverified/pending
+    scheduleVerificationFollowUp(order.id, business.id, order.pickupCode, order.total, req.io, req.prisma);
 
     // Fire & forget WhatsApp to Owner
     sendWhatsAppTemplate(
@@ -597,6 +664,9 @@ router.patch('/:id/status',
         paymentStatus: updated.paymentStatus,
       });
 
+      // Clear any pending verification follow-up timer
+      cancelVerificationFollowUp(updated.id);
+
       // WhatsApp to customer based on status
       const customerPhone = updated.customer.user.phone;
       const baseUrl = process.env.CUSTOMER_WEB_URL || 'http://localhost:5173';
@@ -807,6 +877,9 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       data: { url: '/orders', type: 'utr_submitted', orderId: updated.id, pickupCode: updated.pickupCode },
     }, req.prisma).catch(e => console.warn('[Push] Background push error on UTR submit:', e.message));
 
+    // Schedule 10-second follow-up notification if UTR remains unverified
+    scheduleVerificationFollowUp(updated.id, updated.businessId, updated.pickupCode, updated.total, req.io, req.prisma);
+
     // Notify customer order room
     req.io.to(`order:${updated.id}`).emit('payment-update', {
       orderId: updated.id,
@@ -901,6 +974,9 @@ router.patch('/:id/payment/verify',
         requireInteraction: true,
         data: { url: '/orders', type: 'payment_verified', orderId: updated.id },
       }, req.prisma).catch(e => console.warn('[Push] Background push error on verify:', e.message));
+
+      // Cancel any pending 10-second follow-up timer since payment is now resolved
+      cancelVerificationFollowUp(updated.id);
 
       res.json({
         success: true,

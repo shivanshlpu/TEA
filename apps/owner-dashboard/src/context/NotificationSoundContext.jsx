@@ -675,6 +675,31 @@ export function NotificationSoundProvider({ children }) {
           }
         }
       });
+
+      // 5. 10-Second Follow-up Reminder for Unverified / Unaccepted Orders
+      socket.on('order-unverified-followup', (data) => {
+        console.warn('⚠️ [Follow-up Alert] Order unverified after 10 seconds:', data.pickupCode);
+        // Play loud ringtone / alert sound
+        playAlertSound();
+        const pCode = data.pickupCode || 'ORD';
+        const msg = `⚠️ URGENT: Order #${pCode} (₹${data.total}) has not been verified/accepted after 10s! Please verify to process.`;
+
+        triggerTopBanner({
+          type: 'order_unverified_followup',
+          title: `⚠️ Action Required: Verify Order #${pCode}!`,
+          pickupCode: pCode,
+          total: data.total,
+          message: msg,
+          orderId: data.orderId,
+        });
+
+        showNativeNotification(
+          `⚠️ Action Required: Verify Order #${pCode}!`,
+          `Order #${pCode} (₹${data.total}) needs verification before preparation can start!`,
+          `followup-${data.orderId}`,
+          { url: '/orders', orderId: data.orderId }
+        );
+      });
     } catch (err) {
       console.warn('Notification socket connection error:', err);
     }
