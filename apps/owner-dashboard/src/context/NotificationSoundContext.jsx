@@ -471,6 +471,33 @@ export function NotificationSoundProvider({ children }) {
     }
   };
 
+  // ── Clean Reset Service Worker & Reconnect Push ──
+  const resetAndSubscribe = async () => {
+    setIsSubscribing(true);
+    try {
+      getAudioContext();
+      if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          try {
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+          } catch (_) {}
+          await reg.unregister();
+        }
+        await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        await navigator.serviceWorker.ready;
+      }
+      return await requestPermissionAndSubscribe(true);
+    } catch (err) {
+      console.warn('Reset SW error:', err);
+      toast.error('Could not reset service worker: ' + (err.message || 'Unknown error'));
+      return false;
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
   // ── Native System OS Notification (Active whenever app/tab is open or in background) ──
   const showNativeNotification = useCallback((title, body, tag = 'tea-bhatti', data = { url: '/orders' }) => {
     if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
@@ -589,6 +616,8 @@ export function NotificationSoundProvider({ children }) {
       isSubscribing,
       isSubscribed,
       requestPermissionAndSubscribe,
+      resetAndSubscribe,
+      showNativeNotification,
       activeBanner,
       dismissBanner,
     }}>

@@ -48,6 +48,8 @@ export default function Settings() {
     isSubscribing,
     isSubscribed,
     requestPermissionAndSubscribe,
+    resetAndSubscribe,
+    showNativeNotification,
   } = useNotificationSound();
 
   const [testingPush, setTestingPush] = useState(false);
@@ -66,6 +68,12 @@ export default function Settings() {
       setUploadingAudio(false);
       e.target.value = '';
     }
+  };
+
+  const handleTestLiveAlert = () => {
+    playAlertSound();
+    showNativeNotification('Tea Bhatti Test Alert ☕', 'Sound & Live Notification is working perfectly on your device!', 'test-alert');
+    toast.success('🔊 Live alert sound & notification triggered!');
   };
 
   const handleTestPush = async () => {
@@ -421,13 +429,13 @@ export default function Settings() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => requestPermissionAndSubscribe(true)}
+                    onClick={resetAndSubscribe}
                     disabled={isSubscribing}
                     className="btn-outline text-xs py-1.5 px-3 flex items-center gap-1.5 border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 font-semibold shadow-2xs"
-                    title="Re-register this device with the push notification server"
+                    title="Clean reset service worker and reconnect phone alerts"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSubscribing ? 'animate-spin' : ''}`} />
-                    {isSubscribing ? 'Syncing...' : 'Re-register / Sync Phone Alerts'}
+                    {isSubscribing ? 'Resetting...' : 'Reset & Reconnect Alerts'}
                   </button>
                 </>
               ) : permission === 'denied' ? (
@@ -473,12 +481,23 @@ export default function Settings() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleTestLiveAlert}
+                  className="btn-outline border-amber-300 bg-white hover:bg-amber-100 text-amber-950 text-xs px-3 py-1.5 flex items-center gap-1.5 shadow-2xs font-semibold"
+                  title="Test synthesized or custom audio alert and native desktop notification"
+                >
+                  <Volume2 className="w-3.5 h-3.5 text-amber-600" />
+                  Test Live Sound & Banner
+                </button>
+
                 <button
                   type="button"
                   onClick={handleTestPush}
                   disabled={testingPush}
-                  className="btn-outline border-amber-300 bg-white hover:bg-amber-100 text-amber-950 text-xs px-3 py-1.5 flex items-center gap-1.5 shadow-2xs"
+                  className="btn-outline border-amber-300 bg-white hover:bg-amber-100 text-amber-950 text-xs px-3 py-1.5 flex items-center gap-1.5 shadow-2xs font-semibold"
+                  title="Send a push notification from the server to your phone's lock screen"
                 >
                   <Send className="w-3.5 h-3.5 text-amber-600" />
                   {testingPush ? 'Sending Push...' : 'Send Test Push'}
