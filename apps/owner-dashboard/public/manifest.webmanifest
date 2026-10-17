@@ -1,6 +1,7 @@
 {
   "name": "Cafe Management",
   "short_name": "Cafe Manage",
+  "gcm_sender_id": "103953800507",
   "description": "Tea Bhatti Cafe Owner & Kitchen Management Command Center.",
   "start_url": "/",
   "scope": "/",

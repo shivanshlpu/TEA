@@ -20,8 +20,9 @@ const STORAGE_KEYS = {
 
 // Convert VAPID base64 string to Uint8Array for PushManager
 function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const cleanKey = (base64String || '').trim();
+  const padding = '='.repeat((4 - (cleanKey.length % 4)) % 4);
+  const base64 = (cleanKey + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
   for (let i = 0; i < rawData.length; ++i) {
@@ -411,11 +412,27 @@ export function NotificationSoundProvider({ children }) {
         }
       }
 
-      // If no valid subscription exists, create fresh
-      const newSub = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
+      // If no valid subscription exists, create fresh with retry
+      let newSub;
+      try {
+        newSub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      } catch (subErr) {
+        console.warn('Initial push subscribe attempt error:', subErr);
+        // Force cleanup any dangling or broken subscription before retry
+        try {
+          const stale = await registration.pushManager.getSubscription();
+          if (stale) await stale.unsubscribe();
+        } catch (_) {}
+        // Wait briefly for browser push provider to reset state
+        await new Promise((r) => setTimeout(r, 150));
+        newSub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
 
       // Save to MongoDB Atlas
       await apiFetch('/notifications/push/subscribe', {
@@ -431,12 +448,58 @@ export function NotificationSoundProvider({ children }) {
       return true;
     } catch (err) {
       console.error('Push subscription failed:', err);
-      if (isManualClick) toast.error('Could not activate push notifications: ' + (err.message || 'Unknown error'));
+      const msg = err.message || '';
+      const isPushServiceError = msg.toLowerCase().includes('push service error');
+
+      let isBrave = false;
+      try {
+        if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
+          isBrave = await navigator.brave.isBrave();
+        }
+      } catch (_) {}
+
+      if (isPushServiceError && isBrave) {
+        toast.error('Brave Browser: Enable "Use Google services for push messaging" in brave://settings/privacy, then refresh.');
+      } else if (isPushServiceError) {
+        toast.error('Push Service Error: Google FCM push is blocked by your browser, adblocker, or network. (Live dashboard audio & banner alerts are active!).');
+      } else if (isManualClick) {
+        toast.error('Could not activate push notifications: ' + (err.message || 'Unknown error'));
+      }
       return false;
     } finally {
       setIsSubscribing(false);
     }
   };
+
+  // ── Native System OS Notification (Active whenever app/tab is open or in background) ──
+  const showNativeNotification = useCallback((title, body, tag = 'tea-bhatti', data = { url: '/orders' }) => {
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') {
+      return;
+    }
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification(title, {
+            body,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/favicon.png',
+            vibrate: [300, 100, 300],
+            tag,
+            renotify: true,
+            data,
+          }).catch(() => {
+            try { new Notification(title, { body, icon: '/icons/icon-192x192.png', tag }); } catch (_) {}
+          });
+        }).catch(() => {
+          try { new Notification(title, { body, icon: '/icons/icon-192x192.png', tag }); } catch (_) {}
+        });
+      } else {
+        try { new Notification(title, { body, icon: '/icons/icon-192x192.png', tag }); } catch (_) {}
+      }
+    } catch (err) {
+      console.warn('Native notification trigger warning:', err);
+    }
+  }, []);
 
   // ── Global Real-Time Socket Listener for Owner Events ──
   useEffect(() => {
@@ -455,19 +518,23 @@ export function NotificationSoundProvider({ children }) {
       // 1. New Order Placed
       socket.on('new-order', (ord) => {
         playAlertSound();
+        const code = ord.pickupCode || (ord.orderId ? ord.orderId.slice(-4).toUpperCase() : 'ORD');
+        const msg = `Order #${code} for ₹${ord.total} received. Prepare fresh!`;
         triggerTopBanner({
           type: 'new_order',
           title: 'New Order Received! ☕',
-          pickupCode: ord.pickupCode || (ord.orderId ? ord.orderId.slice(-4).toUpperCase() : 'ORD'),
+          pickupCode: code,
           total: ord.total,
-          message: `Order #${ord.pickupCode || 'ORD'} for ₹${ord.total} received. Prepare fresh!`,
+          message: msg,
           orderId: ord.orderId,
         });
+        showNativeNotification('☕ New Order Received!', msg, 'new-order', { url: '/orders' });
       });
 
       // 2. Customer Submitted UTR
       socket.on('payment-submitted', (data) => {
         playAlertSound();
+        const msg = `${data.customerName || 'Customer'} submitted UTR #${data.utr} for ₹${data.total}`;
         triggerTopBanner({
           type: 'utr_submitted',
           title: 'UTR Payment Submitted! 💰',
@@ -475,22 +542,26 @@ export function NotificationSoundProvider({ children }) {
           customerName: data.customerName || 'Customer',
           utr: data.utr,
           total: data.total,
-          message: `${data.customerName || 'Customer'} submitted UTR #${data.utr} for ₹${data.total}`,
+          message: msg,
           orderId: data.orderId,
         });
+        showNativeNotification('💰 UTR Payment Submitted!', msg, 'utr-submitted', { url: '/orders' });
       });
 
       // 3. Payment Verified
       socket.on('payment-verified', (data) => {
         playAlertSound();
+        const title = data.action === 'verify' ? 'Payment Verified! ✅' : 'Payment Rejected ❌';
+        const msg = `Order #${data.pickupCode} payment ${data.action === 'verify' ? 'verified successfully' : 'marked as rejected'}.`;
         triggerTopBanner({
           type: 'payment_verified',
-          title: data.action === 'verify' ? 'Payment Verified! ✅' : 'Payment Rejected ❌',
+          title,
           pickupCode: data.pickupCode,
           total: data.total,
-          message: `Order #${data.pickupCode} payment ${data.action === 'verify' ? 'verified successfully' : 'marked as rejected'}.`,
+          message: msg,
           orderId: data.orderId,
         });
+        showNativeNotification(title, msg, 'payment-verified', { url: '/orders' });
       });
     } catch (err) {
       console.warn('Notification socket connection error:', err);
@@ -501,7 +572,7 @@ export function NotificationSoundProvider({ children }) {
         socket.disconnect();
       }
     };
-  }, [user, playAlertSound, triggerTopBanner]);
+  }, [user, playAlertSound, triggerTopBanner, showNativeNotification]);
 
   return (
     <NotificationSoundContext.Provider value={{
