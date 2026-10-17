@@ -31,6 +31,9 @@ model Business {
   isAcceptingOrders Boolean @default(true)
   closureReason    String?
   closedDays       String[] @default([])
+  notificationSoundType     String?   @default("chime")
+  customNotificationName    String?
+  customNotificationData    String?
   createdAt        DateTime @default(now())
 
   // Relations

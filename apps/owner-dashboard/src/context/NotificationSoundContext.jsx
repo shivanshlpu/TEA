@@ -83,6 +83,39 @@ export function NotificationSoundProvider({ children }) {
     };
   }, [getAudioContext]);
 
+  // ── Sync notification sound preference from MongoDB Atlas on load/login ──
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+
+    apiFetch('/settings/notification-sound')
+      .then((data) => {
+        if (!isMounted || !data) return;
+        if (data.soundType) {
+          setSoundType(data.soundType);
+          localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, data.soundType);
+        }
+        if (data.customNotificationData) {
+          setCustomAudioData(data.customNotificationData);
+          setCustomAudioName(data.customNotificationName || 'Custom Ringtone');
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, data.customNotificationData);
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, data.customNotificationName || 'Custom Ringtone');
+        } else {
+          setCustomAudioData(null);
+          setCustomAudioName('');
+          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
+          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not fetch cloud notification sound (using cached):', err.message);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, apiFetch]);
+
   // ── Synthesized Audio Generators ──
   const playSynthesizedChime = useCallback((vol) => {
     const ctx = getAudioContext();
@@ -240,33 +273,45 @@ export function NotificationSoundProvider({ children }) {
     }
   }, [soundType, volume, customAudioData, playSynthesizedChime, playSynthesizedCashRegister, playSynthesizedDigitalBuzzer, playSynthesizedDoorbell]);
 
-  // ── Custom Sound Upload Handler ──
+  // ── Custom Sound Upload Handler (Persists to MongoDB Atlas across all devices) ──
   const uploadCustomSound = (file) => {
     return new Promise((resolve, reject) => {
       if (!file) return reject(new Error('No file selected'));
       if (!file.type.startsWith('audio/')) {
         return reject(new Error('Please upload a valid audio file (.mp3, .wav, .ogg, .m4a)'));
       }
-      if (file.size > 5 * 1024 * 1024) {
-        return reject(new Error('Audio file must be under 5MB'));
+      if (file.size > 3 * 1024 * 1024) {
+        return reject(new Error('Audio file must be under 3MB'));
       }
 
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const base64 = e.target.result;
         try {
           // Test if audio is decodable
           const testAudio = new Audio(base64);
           testAudio.volume = volume;
-          testAudio.play().then(() => {
-            setCustomAudioData(base64);
-            setCustomAudioName(file.name);
-            setSoundType('custom');
-            localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, base64);
-            localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, file.name);
-            localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'custom');
-            resolve({ name: file.name, size: file.size });
-          }).catch(reject);
+          await testAudio.play().catch(() => {});
+
+          // 1. Update local state & cache
+          setCustomAudioData(base64);
+          setCustomAudioName(file.name);
+          setSoundType('custom');
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, base64);
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, file.name);
+          localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'custom');
+
+          // 2. Persist to MongoDB Atlas so all devices get this ringtone permanently!
+          await apiFetch('/settings/notification-sound', {
+            method: 'PUT',
+            body: {
+              soundType: 'custom',
+              customNotificationName: file.name,
+              customNotificationData: base64,
+            },
+          });
+
+          resolve({ name: file.name, size: file.size });
         } catch (err) {
           reject(err);
         }
@@ -276,20 +321,36 @@ export function NotificationSoundProvider({ children }) {
     });
   };
 
-  const removeCustomSound = () => {
+  const removeCustomSound = async () => {
     setCustomAudioData(null);
     setCustomAudioName('');
     setSoundType('chime');
     localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
     localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
     localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'chime');
+
+    try {
+      await apiFetch('/settings/notification-sound', { method: 'DELETE' });
+    } catch (err) {
+      console.warn('Failed to delete cloud notification sound:', err.message);
+    }
   };
 
-  const updateSoundType = (type) => {
+  const updateSoundType = async (type) => {
     setSoundType(type);
     localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, type);
     // Play preview of chosen sound
     playAlertSound(type);
+
+    // Save to database across all devices
+    try {
+      await apiFetch('/settings/notification-sound', {
+        method: 'PUT',
+        body: { soundType: type },
+      });
+    } catch (err) {
+      console.warn('Failed to sync sound type to server:', err.message);
+    }
   };
 
   const updateVolume = (val) => {
@@ -589,6 +650,30 @@ export function NotificationSoundProvider({ children }) {
           orderId: data.orderId,
         });
         showNativeNotification(title, msg, 'payment-verified', { url: '/orders' });
+      });
+
+      // 4. Remote Notification Sound & Custom Ringtone Changed by Any Device
+      socket.on('notification-sound-updated', (data) => {
+        console.log('🔄 Notification sound updated remotely across devices:', data.soundType);
+        if (data.soundType) {
+          setSoundType(data.soundType);
+          localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, data.soundType);
+        }
+        if (data.customNotificationData) {
+          setCustomAudioData(data.customNotificationData);
+          setCustomAudioName(data.customNotificationName || 'Custom Ringtone');
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, data.customNotificationData);
+          localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, data.customNotificationName || 'Custom Ringtone');
+          toast.info(`🔔 Ringtone updated across all devices: "${data.customNotificationName || 'Custom Ringtone'}"`);
+        } else {
+          setCustomAudioData(null);
+          setCustomAudioName('');
+          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
+          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
+          if (data.soundType) {
+            toast.info(`🔔 Ringtone switched to ${data.soundType.replace('_', ' ')} across devices`);
+          }
+        }
       });
     } catch (err) {
       console.warn('Notification socket connection error:', err);

@@ -149,6 +149,138 @@ router.patch('/store-status', authenticate, authorize('owner', 'manager'), async
   }
 });
 
+// ── GET /settings/notification-sound ──
+router.get('/notification-sound', authenticate, async (req, res) => {
+  try {
+    let bizId = req.user?.businessId || req.businessId;
+    let business = null;
+    if (bizId && /^[0-9a-fA-F]{24}$/.test(bizId)) {
+      business = await req.prisma.business.findUnique({ where: { id: bizId } });
+    }
+    if (!business) {
+      business = await req.prisma.business.findFirst();
+    }
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+
+    res.json({
+      soundType: business.notificationSoundType || 'chime',
+      customNotificationName: business.customNotificationName || null,
+      customNotificationData: business.customNotificationData || null,
+    });
+  } catch (err) {
+    console.error('Notification sound fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch notification sound' });
+  }
+});
+
+// ── PUT /settings/notification-sound — Upload/Update custom sound or sound type across all devices ──
+router.put('/notification-sound', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    const { soundType, customNotificationName, customNotificationData } = req.body;
+    let bizId = req.user?.businessId || req.businessId;
+    let business = null;
+    if (bizId && /^[0-9a-fA-F]{24}$/.test(bizId)) {
+      business = await req.prisma.business.findUnique({ where: { id: bizId } });
+    }
+    if (!business) {
+      business = await req.prisma.business.findFirst();
+    }
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+
+    // Validate payload size (under 3.5MB base64)
+    if (customNotificationData && customNotificationData.length > 4.5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Custom ringtone audio file must be under 3MB' });
+    }
+
+    const dataToUpdate = {};
+    if (soundType !== undefined) dataToUpdate.notificationSoundType = String(soundType);
+    if (customNotificationName !== undefined) dataToUpdate.customNotificationName = customNotificationName ? String(customNotificationName) : null;
+    if (customNotificationData !== undefined) dataToUpdate.customNotificationData = customNotificationData ? String(customNotificationData) : null;
+
+    const updated = await req.prisma.business.update({
+      where: { id: business.id },
+      data: dataToUpdate,
+    });
+
+    console.log(`🎵 Custom ringtone updated for business ${business.id}: ${updated.notificationSoundType} (${updated.customNotificationName || 'none'})`);
+
+    // Broadcast in real-time to ALL staff/owner devices connected via socket
+    if (req.io) {
+      req.io.to(`business:${business.id}`).emit('notification-sound-updated', {
+        soundType: updated.notificationSoundType,
+        customNotificationName: updated.customNotificationName,
+        customNotificationData: updated.customNotificationData,
+        businessId: business.id,
+      });
+      req.io.emit('notification-sound-updated', {
+        soundType: updated.notificationSoundType,
+        customNotificationName: updated.customNotificationName,
+        customNotificationData: updated.customNotificationData,
+        businessId: business.id,
+      });
+    }
+
+    res.json({
+      success: true,
+      soundType: updated.notificationSoundType,
+      customNotificationName: updated.customNotificationName,
+      customNotificationData: updated.customNotificationData,
+    });
+  } catch (err) {
+    console.error('Notification sound update error:', err);
+    res.status(500).json({ error: 'Failed to update notification sound: ' + err.message });
+  }
+});
+
+// ── DELETE /settings/notification-sound — Remove custom sound and reset to chime ──
+router.delete('/notification-sound', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    let bizId = req.user?.businessId || req.businessId;
+    let business = null;
+    if (bizId && /^[0-9a-fA-F]{24}$/.test(bizId)) {
+      business = await req.prisma.business.findUnique({ where: { id: bizId } });
+    }
+    if (!business) {
+      business = await req.prisma.business.findFirst();
+    }
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+
+    const updated = await req.prisma.business.update({
+      where: { id: business.id },
+      data: {
+        notificationSoundType: 'chime',
+        customNotificationName: null,
+        customNotificationData: null,
+      },
+    });
+
+    if (req.io) {
+      req.io.to(`business:${business.id}`).emit('notification-sound-updated', {
+        soundType: 'chime',
+        customNotificationName: null,
+        customNotificationData: null,
+        businessId: business.id,
+      });
+      req.io.emit('notification-sound-updated', {
+        soundType: 'chime',
+        customNotificationName: null,
+        customNotificationData: null,
+        businessId: business.id,
+      });
+    }
+
+    res.json({
+      success: true,
+      soundType: 'chime',
+      customNotificationName: null,
+      customNotificationData: null,
+    });
+  } catch (err) {
+    console.error('Notification sound delete error:', err);
+    res.status(500).json({ error: 'Failed to remove custom notification sound: ' + err.message });
+  }
+});
+
 const updateSettingsSchema = z.object({
   name: z.string().min(1).nullish(),
   industryType: z.string().nullish(),

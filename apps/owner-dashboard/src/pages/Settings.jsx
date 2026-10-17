@@ -61,7 +61,7 @@ export default function Settings() {
     setUploadingAudio(true);
     try {
       await uploadCustomSound(file);
-      toast.success(`Custom sound "${file.name}" uploaded and set as active alert!`);
+      toast.success(`Custom ringtone "${file.name}" saved to database & synced to all devices!`);
     } catch (err) {
       toast.error(err.message || 'Failed to upload audio');
     } finally {
@@ -587,33 +587,51 @@ export default function Settings() {
               </div>
 
               {customAudioData ? (
-                <div className="p-3 rounded-xl bg-white border border-emerald-300 flex items-center justify-between gap-3 animate-fade-in">
+                <div className="p-3 rounded-xl bg-white border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
                       <Music className="w-4 h-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-text-primary truncate">{customAudioName}</p>
-                      <p className="text-[10px] text-emerald-700 font-semibold">Active & Saved locally in browser storage</p>
+                      <p className="text-xs font-bold text-text-primary truncate">{customAudioName || 'Custom Ringtone'}</p>
+                      <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                        <span>☁️ Saved in Database & Synced Across All Your Devices</span>
+                      </p>
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => playAlertSound('custom')}
-                    className="btn-outline text-xs py-1 px-3 flex items-center gap-1.5 shrink-0"
-                  >
-                    <Play className="w-3 h-3 fill-current" />
-                    Play Preview
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <label className="btn-outline text-xs py-1 px-2.5 flex items-center gap-1.5 cursor-pointer bg-white hover:bg-slate-50 text-text-primary border-slate-300 font-medium">
+                      <Upload className="w-3 h-3 text-slate-600" />
+                      <span>{uploadingAudio ? 'Replacing...' : 'Replace Ringtone'}</span>
+                      <input
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleCustomAudioUpload}
+                        disabled={uploadingAudio}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => playAlertSound('custom')}
+                      className="btn-outline text-xs py-1 px-3 flex items-center gap-1.5 font-semibold text-primary border-primary/30 hover:bg-primary/5"
+                    >
+                      <Play className="w-3 h-3 fill-current" />
+                      Play Preview
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-border-default hover:border-primary rounded-xl cursor-pointer bg-white transition-colors">
                   <Upload className="w-6 h-6 text-text-secondary mb-1.5" />
                   <span className="text-xs font-bold text-text-primary">
-                    {uploadingAudio ? 'Uploading & verifying audio...' : 'Click to upload custom sound (.mp3, .wav, .ogg)'}
+                    {uploadingAudio ? 'Uploading to database & syncing devices...' : 'Click to upload custom sound (.mp3, .wav, .ogg)'}
                   </span>
-                  <span className="text-[11px] text-text-secondary mt-0.5">Maximum file size: 5MB</span>
+                  <span className="text-[11px] text-text-secondary mt-0.5">
+                    Maximum file size: 3MB • Saved to cloud database & auto-reflects across all phones, tablets, and PCs
+                  </span>
                   <input
                     type="file"
                     accept="audio/*"
