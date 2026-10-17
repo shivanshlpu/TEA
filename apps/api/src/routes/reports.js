@@ -76,7 +76,7 @@ function getISTDateRange(range = 'today', customFrom = null, customTo = null) {
 // ── GET /reports — Main Business Intelligence Report ──
 router.get('/',
   authenticate,
-  authorize('owner', 'manager'),
+  authorize('owner', 'manager', 'cashier'),
   requireBusinessScope,
   async (req, res) => {
     try {

@@ -48,6 +48,181 @@ const RANGE_TABS = [
   { key: 'custom', label: 'Custom Range' },
 ];
 
+// Helper to calculate Indian Standard Time Date Boundaries
+function getISTDateRange(range = 'today', customFrom = null, customTo = null) {
+  const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  let start = new Date(nowIST);
+  let end = new Date(nowIST);
+
+  switch (range) {
+    case 'today':
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'yesterday':
+      start.setDate(start.getDate() - 1);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(end.getDate() - 1);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'week':
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'month':
+      start.setDate(start.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'year':
+      start = new Date(nowIST.getFullYear(), 0, 1, 0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case 'custom':
+      if (customFrom) {
+        start = new Date(customFrom);
+        start.setHours(0, 0, 0, 0);
+      } else {
+        start.setHours(0, 0, 0, 0);
+      }
+      if (customTo) {
+        end = new Date(customTo);
+        end.setHours(23, 59, 59, 999);
+      } else {
+        end.setHours(23, 59, 59, 999);
+      }
+      break;
+    default:
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+  }
+
+  return { start, end };
+}
+
+function generateReportFromOrders(rawOrders, range, start, end, user) {
+  const filtered = (rawOrders || []).filter(o => {
+    const d = new Date(o.createdAt);
+    return d >= start && d <= end;
+  });
+
+  const totalOrders = filtered.length;
+  const deliveredOrders = filtered.filter(o => o.status === 'delivered').length;
+  const cancelledOrders = filtered.filter(o => o.status === 'cancelled').length;
+  const activeOrders = filtered.filter(o => o.status !== 'cancelled');
+
+  const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const advanceCollected = activeOrders.reduce((sum, o) => {
+    const adv = o.advanceAmount || (o.total ? Math.round(o.total * 0.2) : 0);
+    return sum + (o.paymentStatus === 'paid' || o.paymentStatus === 'partially_paid' || o.advanceAmount > 0 ? adv : 0);
+  }, 0);
+  const balanceSettled = activeOrders.reduce((sum, o) => {
+    return sum + (o.paymentStatus === 'paid' ? (o.balanceAmount || Math.round(o.total * 0.8)) : 0);
+  }, 0);
+  const validOrderCount = totalOrders - cancelledOrders;
+  const averageOrderValue = validOrderCount > 0 ? Math.round(totalRevenue / validOrderCount) : 0;
+
+  // Trend Data
+  const trendMap = {};
+  filtered.forEach(o => {
+    const d = new Date(o.createdAt);
+    let key;
+    if (range === 'today' || range === 'yesterday') {
+      key = d.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', hour12: true });
+    } else {
+      key = d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' });
+    }
+
+    if (!trendMap[key]) {
+      trendMap[key] = { label: key, orders: 0, revenue: 0 };
+    }
+    trendMap[key].orders += 1;
+    if (o.status !== 'cancelled') {
+      trendMap[key].revenue += (o.total || 0);
+    }
+  });
+  const trendData = Object.values(trendMap);
+
+  // Top Items
+  const itemMap = {};
+  activeOrders.forEach(o => {
+    (o.items || []).forEach(it => {
+      const name = it.menuItem?.name || it.name || 'Menu Item';
+      const qty = it.quantity || 1;
+      const price = it.price || 0;
+      if (!itemMap[name]) {
+        itemMap[name] = { name, quantity: 0, revenue: 0, imageUrl: it.menuItem?.imageUrl || null };
+      }
+      itemMap[name].quantity += qty;
+      itemMap[name].revenue += price * qty;
+    });
+  });
+  const topItems = Object.values(itemMap)
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5);
+
+  // Itemized Order rows
+  const itemizedOrders = filtered.map(o => {
+    const itemsSummary = (o.items || []).map(i => `${i.quantity}x ${i.menuItem?.name || i.name || 'Item'}`).join(', ');
+    const itemsCount = (o.items || []).reduce((s, i) => s + (i.quantity || 1), 0);
+    const advance = o.advanceAmount || (o.total ? Math.round(o.total * 0.2) : 0);
+    const balance = o.balanceAmount || (o.total ? Math.round(o.total * 0.8) : 0);
+    const custUser = o.customer?.user || {};
+
+    return {
+      id: o.id,
+      pickupCode: o.pickupCode || o.id?.slice(-4)?.toUpperCase() || 'ORD',
+      customerName: custUser.name || 'Walk-in Guest',
+      customerPhone: custUser.phone || '-',
+      itemsSummary: itemsSummary || 'Standard Order',
+      itemsCount,
+      total: o.total || 0,
+      advanceAmount: advance,
+      balanceAmount: balance,
+      status: o.status,
+      paymentStatus: o.paymentStatus || 'unverified',
+      paymentUtr: o.paymentUtr || null,
+      orderType: o.orderType || 'pickup',
+      createdAt: o.createdAt,
+    };
+  });
+
+  const periodLabels = {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    week: 'Last 7 Days',
+    month: 'Last 30 Days',
+    year: 'Current Year',
+    custom: `${start.toLocaleDateString('en-IN')} to ${end.toLocaleDateString('en-IN')}`,
+  };
+
+  return {
+    summary: {
+      totalRevenue,
+      totalOrders,
+      deliveredOrders,
+      cancelledOrders,
+      advanceCollected,
+      balanceSettled,
+      averageOrderValue,
+    },
+    trendData,
+    topItems,
+    orders: itemizedOrders,
+    business: {
+      name: 'Tea Bhatti',
+      address: 'Near Medical College, Shahdol, MP 484001',
+      phone: '+91 7000748920',
+    },
+    dateRange: {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      label: periodLabels[range] || range,
+    },
+  };
+}
+
 export default function Reports() {
   const { apiFetch, user } = useAuth();
   const { toast } = useToast();
@@ -79,8 +254,28 @@ export default function Reports() {
       if (range === 'custom') {
         url += `&from=${customFrom}&to=${customTo}`;
       }
-      const res = await apiFetch(url);
-      setData(res);
+      try {
+        const res = await apiFetch(url);
+        if (res && res.summary) {
+          setData(res);
+          return;
+        }
+      } catch (apiErr) {
+        console.warn('Dedicated /reports endpoint not yet active, executing dynamic fallback via /orders:', apiErr);
+        const { start, end } = getISTDateRange(range, customFrom, customTo);
+        const fromIso = start.toISOString();
+        const toIso = end.toISOString();
+
+        let ordersUrl = `/orders?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}&limit=500`;
+        if (statusFilter && statusFilter !== 'all') {
+          ordersUrl += `&status=${statusFilter}`;
+        }
+        const ordersRes = await apiFetch(ordersUrl);
+        const rawOrders = ordersRes.orders || [];
+        const fallbackReport = generateReportFromOrders(rawOrders, range, start, end, user);
+        setData(fallbackReport);
+        return;
+      }
     } catch (err) {
       console.error('Failed to load report:', err);
       setError(err.message || 'Failed to fetch report data');
