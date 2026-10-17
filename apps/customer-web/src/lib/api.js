@@ -1,11 +1,16 @@
 // ── API Helper ──
 const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
-export const API_BASE = rawApiUrl
-  ? (rawApiUrl.endsWith('/api/v1') ? rawApiUrl : `${rawApiUrl.replace(/\/+$/, '')}/api/v1`)
-  : '/api/v1';
+function normalizeApiBase(url) {
+  if (!url) return '/api/v1';
+  const clean = url.replace(/\/+$/, '');
+  if (clean.endsWith('/api/v1')) return clean;
+  if (clean.endsWith('/api')) return `${clean}/v1`;
+  return `${clean}/api/v1`;
+}
+export const API_BASE = normalizeApiBase(rawApiUrl);
 
 export const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL || '').trim() ||
-  (rawApiUrl ? rawApiUrl.replace(/\/api\/v1\/?$/, '') : '') ||
+  (rawApiUrl ? rawApiUrl.replace(/\/api(\/v1)?\/?$/, '') : '') ||
   (typeof window !== 'undefined' ? window.location.origin.replace(/:\d+$/, ':5000') : 'http://localhost:5000');
 
 let isRefreshing = false;

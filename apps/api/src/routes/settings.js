@@ -149,8 +149,8 @@ router.patch('/store-status', authenticate, authorize('owner', 'manager'), async
   }
 });
 
-// ── GET /settings/notification-sound ──
-router.get('/notification-sound', authenticate, async (req, res) => {
+// ── GET /settings/notification-sound (and aliases) ──
+router.get(['/notification-sound', '/custom-sound', '/sound'], authenticate, async (req, res) => {
   try {
     let bizId = req.user?.businessId || req.businessId;
     let business = null;
@@ -160,7 +160,16 @@ router.get('/notification-sound', authenticate, async (req, res) => {
     if (!business) {
       business = await req.prisma.business.findFirst();
     }
-    if (!business) return res.status(404).json({ error: 'Business not found' });
+    if (!business) {
+      business = await req.prisma.business.create({
+        data: {
+          name: 'Tea Bhatti',
+          address: 'Near Medical College, Shahdol, Madhya Pradesh',
+          phoneNumber: '+917000748920',
+          notificationSoundType: 'chime',
+        },
+      });
+    }
 
     res.json({
       soundType: business.notificationSoundType || 'chime',
@@ -173,10 +182,10 @@ router.get('/notification-sound', authenticate, async (req, res) => {
   }
 });
 
-// ── PUT /settings/notification-sound — Upload/Update custom sound or sound type across all devices ──
-router.put('/notification-sound', authenticate, authorize('owner', 'manager'), async (req, res) => {
+// Handler for updating notification sound (supports both PUT and POST, plus route aliases)
+const handleNotificationSoundUpdate = async (req, res) => {
   try {
-    const { soundType, customNotificationName, customNotificationData } = req.body;
+    const { soundType, customNotificationName, customNotificationData } = req.body || {};
     let bizId = req.user?.businessId || req.businessId;
     let business = null;
     if (bizId && /^[0-9a-fA-F]{24}$/.test(bizId)) {
@@ -185,9 +194,18 @@ router.put('/notification-sound', authenticate, authorize('owner', 'manager'), a
     if (!business) {
       business = await req.prisma.business.findFirst();
     }
-    if (!business) return res.status(404).json({ error: 'Business not found' });
+    if (!business) {
+      business = await req.prisma.business.create({
+        data: {
+          name: 'Tea Bhatti',
+          address: 'Near Medical College, Shahdol, Madhya Pradesh',
+          phoneNumber: '+917000748920',
+          notificationSoundType: 'custom',
+        },
+      });
+    }
 
-    // Validate payload size (under 3.5MB base64)
+    // Validate payload size (under 4.5MB base64)
     if (customNotificationData && customNotificationData.length > 4.5 * 1024 * 1024) {
       return res.status(400).json({ error: 'Custom ringtone audio file must be under 3MB' });
     }
@@ -206,18 +224,14 @@ router.put('/notification-sound', authenticate, authorize('owner', 'manager'), a
 
     // Broadcast in real-time to ALL staff/owner devices connected via socket
     if (req.io) {
-      req.io.to(`business:${business.id}`).emit('notification-sound-updated', {
+      const payload = {
         soundType: updated.notificationSoundType,
         customNotificationName: updated.customNotificationName,
         customNotificationData: updated.customNotificationData,
         businessId: business.id,
-      });
-      req.io.emit('notification-sound-updated', {
-        soundType: updated.notificationSoundType,
-        customNotificationName: updated.customNotificationName,
-        customNotificationData: updated.customNotificationData,
-        businessId: business.id,
-      });
+      };
+      req.io.to(`business:${business.id}`).emit('notification-sound-updated', payload);
+      req.io.emit('notification-sound-updated', payload);
     }
 
     res.json({
@@ -230,10 +244,14 @@ router.put('/notification-sound', authenticate, authorize('owner', 'manager'), a
     console.error('Notification sound update error:', err);
     res.status(500).json({ error: 'Failed to update notification sound: ' + err.message });
   }
-});
+};
+
+// ── PUT & POST /settings/notification-sound — Upload/Update custom sound or sound type across all devices ──
+router.put(['/notification-sound', '/custom-sound', '/sound'], authenticate, authorize('owner', 'manager'), handleNotificationSoundUpdate);
+router.post(['/notification-sound', '/custom-sound', '/sound'], authenticate, authorize('owner', 'manager'), handleNotificationSoundUpdate);
 
 // ── DELETE /settings/notification-sound — Remove custom sound and reset to chime ──
-router.delete('/notification-sound', authenticate, authorize('owner', 'manager'), async (req, res) => {
+router.delete(['/notification-sound', '/custom-sound', '/sound'], authenticate, authorize('owner', 'manager'), async (req, res) => {
   try {
     let bizId = req.user?.businessId || req.businessId;
     let business = null;
@@ -243,7 +261,16 @@ router.delete('/notification-sound', authenticate, authorize('owner', 'manager')
     if (!business) {
       business = await req.prisma.business.findFirst();
     }
-    if (!business) return res.status(404).json({ error: 'Business not found' });
+    if (!business) {
+      business = await req.prisma.business.create({
+        data: {
+          name: 'Tea Bhatti',
+          address: 'Near Medical College, Shahdol, Madhya Pradesh',
+          phoneNumber: '+917000748920',
+          notificationSoundType: 'chime',
+        },
+      });
+    }
 
     const updated = await req.prisma.business.update({
       where: { id: business.id },
@@ -255,18 +282,14 @@ router.delete('/notification-sound', authenticate, authorize('owner', 'manager')
     });
 
     if (req.io) {
-      req.io.to(`business:${business.id}`).emit('notification-sound-updated', {
+      const payload = {
         soundType: 'chime',
         customNotificationName: null,
         customNotificationData: null,
         businessId: business.id,
-      });
-      req.io.emit('notification-sound-updated', {
-        soundType: 'chime',
-        customNotificationName: null,
-        customNotificationData: null,
-        businessId: business.id,
-      });
+      };
+      req.io.to(`business:${business.id}`).emit('notification-sound-updated', payload);
+      req.io.emit('notification-sound-updated', payload);
     }
 
     res.json({

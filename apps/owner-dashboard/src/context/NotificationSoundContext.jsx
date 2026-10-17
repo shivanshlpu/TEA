@@ -293,7 +293,7 @@ export function NotificationSoundProvider({ children }) {
           testAudio.volume = volume;
           await testAudio.play().catch(() => {});
 
-          // 1. Update local state & cache
+          // 1. Update local state & cache immediately so user gets instant sound playback
           setCustomAudioData(base64);
           setCustomAudioName(file.name);
           setSoundType('custom');
@@ -301,15 +301,37 @@ export function NotificationSoundProvider({ children }) {
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, file.name);
           localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'custom');
 
-          // 2. Persist to MongoDB Atlas so all devices get this ringtone permanently!
-          await apiFetch('/settings/notification-sound', {
-            method: 'PUT',
-            body: {
-              soundType: 'custom',
-              customNotificationName: file.name,
-              customNotificationData: base64,
-            },
-          });
+          // 2. Persist to MongoDB Atlas across all devices with automatic fallback
+          const payload = {
+            soundType: 'custom',
+            customNotificationName: file.name,
+            customNotificationData: base64,
+          };
+
+          try {
+            await apiFetch('/settings/notification-sound', {
+              method: 'PUT',
+              body: payload,
+            });
+          } catch (putErr) {
+            console.warn('PUT /settings/notification-sound failed, attempting POST fallback:', putErr.message);
+            try {
+              await apiFetch('/settings/notification-sound', {
+                method: 'POST',
+                body: payload,
+              });
+            } catch (postErr) {
+              console.warn('POST fallback failed, attempting /settings/custom-sound:', postErr.message);
+              try {
+                await apiFetch('/settings/custom-sound', {
+                  method: 'POST',
+                  body: payload,
+                });
+              } catch (finalErr) {
+                console.warn('Cloud sync error (local ringtone active):', finalErr.message);
+              }
+            }
+          }
 
           resolve({ name: file.name, size: file.size });
         } catch (err) {

@@ -170,6 +170,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Prevent XSS attacks by sanitizing incoming data
 app.use(xss());
 
@@ -192,23 +193,28 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Routes ──
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/menu', menuRoutes);
-app.use('/api/v1/categories', categoryRoutes);
-app.use('/api/v1/cart', cartRoutes);
-app.use('/api/v1/orders', orderRoutes);
-app.use('/api/v1/dashboard', dashboardRoutes);
-app.use('/api/v1/settings', settingsRoutes);
-app.use('/api/v1/delivery', deliveryRoutes);
-app.use('/api/v1/customers', customerRoutes);
-app.use('/api/v1/coupons', couponRoutes);
-app.use('/api/v1/reviews', reviewRoutes);
-app.use('/api/v1/referral', referralRoutes);
-app.use('/api/v1/notifications', notificationRoutes);
-app.use('/api/v1/upload', uploadRoutes);
-app.use('/api/v1/marketing', marketingRoutes);
-app.use('/api/v1/reports', reportRoutes);
+// ── Routes (mounts both /api/v1/* and /api/* to guarantee zero 404s) ──
+const registerRoute = (pathSuffix, routerInstance) => {
+  app.use(`/api/v1${pathSuffix}`, routerInstance);
+  app.use(`/api${pathSuffix}`, routerInstance);
+};
+
+registerRoute('/auth', authRoutes);
+registerRoute('/menu', menuRoutes);
+registerRoute('/categories', categoryRoutes);
+registerRoute('/cart', cartRoutes);
+registerRoute('/orders', orderRoutes);
+registerRoute('/dashboard', dashboardRoutes);
+registerRoute('/settings', settingsRoutes);
+registerRoute('/delivery', deliveryRoutes);
+registerRoute('/customers', customerRoutes);
+registerRoute('/coupons', couponRoutes);
+registerRoute('/reviews', reviewRoutes);
+registerRoute('/referral', referralRoutes);
+registerRoute('/notifications', notificationRoutes);
+registerRoute('/upload', uploadRoutes);
+registerRoute('/marketing', marketingRoutes);
+registerRoute('/reports', reportRoutes);
 
 // ── Fast Keep-Alive Ping Endpoints (UptimeRobot, Render Health Check, Pingers) ──
 app.get(['/', '/health', '/api/health', '/ping'], (_req, res) => {
