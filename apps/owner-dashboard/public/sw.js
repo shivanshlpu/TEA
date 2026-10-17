@@ -126,22 +126,27 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  const isUtr = (data.data && data.data.type === 'utr_submitted') || (data.title && data.title.includes('UTR'));
+  const isVerify = (data.data && data.data.type === 'payment_verified');
+
   const options = {
-    body: data.body || 'New order arrived!',
+    body: data.body || 'New order or payment received!',
     icon: data.icon || '/icons/icon-192x192.png',
     badge: data.badge || '/icons/favicon.png',
-    vibrate: [200, 100, 200, 100, 400],
-    tag: data.tag || 'tea-bhatti-order',
+    vibrate: [300, 100, 300, 100, 500],
+    tag: data.tag || (isUtr ? 'utr-submitted' : 'tea-bhatti-alert'),
     renotify: true,
+    requireInteraction: true, // Keep notification visible on screen until interacted with
+    silent: false,
     data: data.data || { url: '/orders' },
     actions: [
-      { action: 'open_orders', title: '👀 View Order' },
+      { action: 'open_orders', title: isUtr ? '💰 Verify Payment' : '👀 View Order' },
       { action: 'dismiss', title: '✕ Dismiss' }
     ]
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Tea Bhatti Alert', options)
+    self.registration.showNotification(data.title || 'Tea Bhatti Alert ☕', options)
   );
 });
 

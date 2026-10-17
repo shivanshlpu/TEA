@@ -60,18 +60,25 @@ function ProtectedLayout() {
 }
 
 import { ToastProvider } from './context/ToastContext.jsx';
+import { NotificationSoundProvider } from './context/NotificationSoundContext.jsx';
+import TopNotificationBanner from './components/TopNotificationBanner.jsx';
+import PermissionPromptBanner from './components/PermissionPromptBanner.jsx';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Navigate to="/login" replace />} />
-            <Route path="/*" element={<ProtectedLayout />} />
-          </Routes>
-          <InstallPrompt />
+          <NotificationSoundProvider>
+            <TopNotificationBanner />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Navigate to="/login" replace />} />
+              <Route path="/*" element={<ProtectedLayout />} />
+            </Routes>
+            <InstallPrompt />
+            <PermissionPromptBanner />
+          </NotificationSoundProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

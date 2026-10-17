@@ -796,6 +796,17 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       customerPhone: updated.customer?.user?.phone,
     });
 
+    // Web Push alert to owner devices (background service worker push)
+    sendPushToBusiness(updated.businessId, {
+      title: 'UTR Payment Submitted! 💰',
+      body: `Customer ${updated.customer?.user?.name || 'Guest'} submitted UTR #${cleanUtr} for Token #${updated.pickupCode || updated.id.slice(-4).toUpperCase()} (₹${updated.total})`,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/favicon.png',
+      tag: `utr-${updated.id}`,
+      requireInteraction: true,
+      data: { url: '/orders', type: 'utr_submitted', orderId: updated.id, pickupCode: updated.pickupCode },
+    }).catch(e => console.warn('[Push] Background push error on UTR submit:', e.message));
+
     // Notify customer order room
     req.io.to(`order:${updated.id}`).emit('payment-update', {
       orderId: updated.id,
@@ -871,6 +882,25 @@ router.patch('/:id/payment/verify',
         status: updated.status,
         paymentStatus: newPaymentStatus,
       });
+
+      req.io.to(`business:${updated.businessId}`).emit('payment-verified', {
+        orderId: updated.id,
+        pickupCode: order.pickupCode,
+        total: order.total,
+        action,
+        status: updated.status,
+        paymentStatus: newPaymentStatus,
+      });
+
+      sendPushToBusiness(updated.businessId, {
+        title: action === 'verify' ? 'Payment Verified! ✅' : 'Payment Rejected ❌',
+        body: `Order #${order.pickupCode || order.id.slice(-4).toUpperCase()} payment ${action === 'verify' ? 'verified' : 'rejected'} (₹${order.total})`,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/favicon.png',
+        tag: `verify-${updated.id}`,
+        requireInteraction: true,
+        data: { url: '/orders', type: 'payment_verified', orderId: updated.id },
+      }).catch(e => console.warn('[Push] Background push error on verify:', e.message));
 
       res.json({
         success: true,
