@@ -28,6 +28,7 @@ import referralRoutes from './routes/referral.js';
 import notificationRoutes from './routes/notifications.js';
 import uploadRoutes from './routes/upload.js';
 import marketingRoutes from './routes/marketing.js';
+import reportRoutes from './routes/reports.js';
 import { initBaileys } from './lib/baileys.js';
 import { startOrderScheduler } from './lib/orderScheduler.js';
 import cache from './lib/cache.js';
@@ -198,6 +199,7 @@ app.use('/api/v1/referral', referralRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/marketing', marketingRoutes);
+app.use('/api/v1/reports', reportRoutes);
 
 // ── Fast Keep-Alive Ping Endpoints (UptimeRobot, Render Health Check, Pingers) ──
 app.get(['/', '/health', '/api/health', '/ping'], (_req, res) => {

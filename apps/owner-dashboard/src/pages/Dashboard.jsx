@@ -6,6 +6,7 @@ import { io } from 'socket.io-client';
 import { ShoppingBag, DollarSign, Users, TrendingUp, Clock, CheckCircle, XCircle, Store, Bell, Package } from 'lucide-react';
 import { useAuth, SOCKET_URL } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import StoreStatusToggle from '../components/StoreStatusToggle.jsx';
 
 const STATUS_COLORS = {
   received: 'bg-secondary/20 text-secondary border-secondary/30',
@@ -92,6 +93,7 @@ export default function Dashboard() {
           <p className="text-sm text-text-secondary">Welcome back, {user?.name || 'Owner'} • Pure Veg Pickup Cafe</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <StoreStatusToggle />
           <a
             href="/pickups"
             className="btn-primary text-xs font-bold px-4 py-2.5 flex items-center gap-1.5 shadow-md min-h-[38px]"

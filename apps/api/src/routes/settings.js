@@ -74,6 +74,79 @@ router.post('/whatsapp/disconnect', authenticate, authorize('owner'), async (req
   }
 });
 
+// ── GET /store-status — Quick status check ──
+router.get('/store-status', async (req, res) => {
+  try {
+    const business = await req.prisma.business.findFirst({
+      select: {
+        id: true,
+        isAcceptingOrders: true,
+        closureReason: true,
+        openingTime: true,
+        closingTime: true,
+        closedDays: true,
+      },
+    });
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+    res.json({
+      isAcceptingOrders: business.isAcceptingOrders !== false,
+      closureReason: business.closureReason || null,
+      openingTime: business.openingTime,
+      closingTime: business.closingTime,
+      closedDays: Array.isArray(business.closedDays) ? business.closedDays : [],
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch store status' });
+  }
+});
+
+// ── PATCH /store-status — Fast Emergency Toggle (Accepting Orders ON/OFF) ──
+router.patch('/store-status', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    const { isAcceptingOrders, closureReason } = req.body;
+    let bizId = req.user.businessId;
+    let business = null;
+    if (bizId && /^[0-9a-fA-F]{24}$/.test(bizId)) {
+      business = await req.prisma.business.findUnique({ where: { id: bizId } });
+    }
+    if (!business) {
+      business = await req.prisma.business.findFirst();
+    }
+    if (!business) return res.status(404).json({ error: 'Business not found' });
+
+    const updated = await req.prisma.business.update({
+      where: { id: business.id },
+      data: {
+        isAcceptingOrders: Boolean(isAcceptingOrders),
+        closureReason: isAcceptingOrders ? null : (closureReason ? String(closureReason).trim() : 'Store is temporarily closed'),
+      },
+    });
+
+    cache.del('settings:default-business');
+
+    // Notify all connected dashboard and customer sockets
+    if (req.io) {
+      req.io.emit('store-status-changed', {
+        isAcceptingOrders: updated.isAcceptingOrders,
+        closureReason: updated.closureReason,
+      });
+      req.io.to(`business:${updated.id}`).emit('settings-updated', updated);
+    }
+
+    res.json({
+      success: true,
+      isAcceptingOrders: updated.isAcceptingOrders,
+      closureReason: updated.closureReason,
+      message: updated.isAcceptingOrders 
+        ? 'Tea Bhatti is now Online & accepting orders!' 
+        : `Store turned OFF: ${updated.closureReason}`,
+    });
+  } catch (err) {
+    console.error('Store status toggle error:', err);
+    res.status(500).json({ error: 'Failed to update store status: ' + err.message });
+  }
+});
+
 const updateSettingsSchema = z.object({
   name: z.string().min(1).nullish(),
   industryType: z.string().nullish(),

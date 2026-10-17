@@ -21,9 +21,11 @@ import {
   RefreshCw,
   X,
   Printer,
-  AlertTriangle
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
 import OrderReceiptModal from '../components/OrderReceiptModal.jsx';
+import StoreStatusToggle from '../components/StoreStatusToggle.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
 const PICKUP_COLUMNS = [
@@ -44,6 +46,16 @@ export default function PickupManagement() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Indian Standard Time day calculation
+  const todayISTStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayISTStr = yesterdayDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+  // Date Filter State
+  const [dateFilterMode, setDateFilterMode] = useState('today'); // 'today' | 'yesterday' | 'custom' | 'all'
+  const [selectedDay, setSelectedDay] = useState(todayISTStr);
 
   // Dynamic Balance QR Modal state
   const [activeQr, setActiveQr] = useState(null);
@@ -96,10 +108,29 @@ export default function PickupManagement() {
     };
   }, [user?.businessId]);
 
+  useEffect(() => {
+    loadPickups(true);
+  }, [dateFilterMode, selectedDay]);
+
   async function loadPickups(showSpinner = true) {
     if (showSpinner) setLoading(true);
     try {
-      const data = await apiFetch('/orders?limit=100');
+      let url = '/orders?limit=250';
+      if (dateFilterMode === 'today') {
+        const start = `${todayISTStr}T00:00:00.000Z`;
+        const end = `${todayISTStr}T23:59:59.999Z`;
+        url += `&from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+      } else if (dateFilterMode === 'yesterday') {
+        const start = `${yesterdayISTStr}T00:00:00.000Z`;
+        const end = `${yesterdayISTStr}T23:59:59.999Z`;
+        url += `&from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+      } else if (dateFilterMode === 'custom' && selectedDay) {
+        const start = `${selectedDay}T00:00:00.000Z`;
+        const end = `${selectedDay}T23:59:59.999Z`;
+        url += `&from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+      }
+
+      const data = await apiFetch(url);
       setOrders(data.orders || []);
       setFetchError(null);
     } catch (err) {
@@ -231,13 +262,16 @@ export default function PickupManagement() {
           </p>
         </div>
 
-        <button
-          onClick={() => loadPickups(true)}
-          className="btn-outline px-4 py-2 text-xs font-bold flex items-center gap-2 self-start sm:self-auto"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh Orders
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <StoreStatusToggle />
+          <button
+            onClick={() => loadPickups(true)}
+            className="btn-outline px-3.5 py-2 text-xs font-bold flex items-center gap-2 bg-white"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh Orders
+          </button>
+        </div>
       </div>
 
       {/* Live Toast Alert for Incoming Orders */}
@@ -313,6 +347,88 @@ export default function PickupManagement() {
           </div>
           <div className="text-2xl font-mono font-black text-amber-900">₹{totalOutstandingBalance.toFixed(0)}</div>
           <span className="text-[11px] text-amber-700 font-medium">Collect via Cash or QR at shop</span>
+        </div>
+      </div>
+
+      {/* Date Filter & Day Summary Bar */}
+      <div className="card p-3.5 sm:p-4 border-2 border-border-subtle bg-white shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <Calendar className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-text-primary">
+                Viewing Records for: <strong className="text-primary">{
+                  dateFilterMode === 'today' ? 'Today' :
+                  dateFilterMode === 'yesterday' ? 'Yesterday' :
+                  dateFilterMode === 'custom' ? selectedDay :
+                  'All Recorded Days'
+                }</strong>
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                {orders.length} orders processed
+              </span>
+            </div>
+            <p className="text-[11px] text-text-secondary mt-0.5">
+              Inspect order volumes, kitchen statuses, and cash settlements for any specific date.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setDateFilterMode('today')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              dateFilterMode === 'today'
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-bg-base/70 text-text-secondary hover:text-text-primary border border-border-subtle'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            type="button"
+            onClick={() => setDateFilterMode('yesterday')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              dateFilterMode === 'yesterday'
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-bg-base/70 text-text-secondary hover:text-text-primary border border-border-subtle'
+            }`}
+          >
+            Yesterday
+          </button>
+          <button
+            type="button"
+            onClick={() => setDateFilterMode('custom')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              dateFilterMode === 'custom'
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-bg-base/70 text-text-secondary hover:text-text-primary border border-border-subtle'
+            }`}
+          >
+            Pick Date
+          </button>
+          {dateFilterMode === 'custom' && (
+            <input
+              type="date"
+              value={selectedDay}
+              onChange={e => setSelectedDay(e.target.value)}
+              className="input-field text-xs py-1 px-2.5 bg-white border-primary/40 focus:border-primary font-medium"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setDateFilterMode('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              dateFilterMode === 'all'
+                ? 'bg-primary text-white shadow-xs'
+                : 'bg-bg-base/70 text-text-secondary hover:text-text-primary border border-border-subtle'
+            }`}
+          >
+            All Days
+          </button>
         </div>
       </div>
 

@@ -16,13 +16,15 @@ import {
   X, 
   Store, 
   Clock,
-  Megaphone
+  Megaphone,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/pickups', icon: Store, label: 'Pickup Operations' },
+  { to: '/reports', icon: BarChart3, label: 'Sales Reports & BI' },
   { to: '/orders', icon: ShoppingBag, label: 'All Orders' },
   { to: '/menu', icon: UtensilsCrossed, label: 'Menu Catalog' },
   { to: '/marketing', icon: Megaphone, label: 'Marketing & WhatsApp' },

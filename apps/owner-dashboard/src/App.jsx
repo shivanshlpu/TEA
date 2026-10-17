@@ -15,6 +15,7 @@ import Reviews from './pages/Reviews.jsx';
 import Settings from './pages/Settings.jsx';
 import PickupManagement from './pages/PickupManagement.jsx';
 import Marketing from './pages/Marketing.jsx';
+import Reports from './pages/Reports.jsx';
 import InstallPrompt from './components/InstallPrompt.jsx';
 
 function ProtectedLayout() {
@@ -44,6 +45,7 @@ function ProtectedLayout() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pickups" element={<PickupManagement />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/menu" element={<MenuManage />} />
           <Route path="/marketing" element={<Marketing />} />
