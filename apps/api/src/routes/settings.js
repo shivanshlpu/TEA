@@ -15,6 +15,8 @@ const router = Router();
 router.get('/default-business', async (req, res) => {
   try {
     const cacheKey = 'settings:default-business';
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=180, stale-while-revalidate=300');
+
     const cached = cache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');

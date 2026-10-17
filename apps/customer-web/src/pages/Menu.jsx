@@ -301,12 +301,12 @@ export default function Menu() {
   }
 
   async function loadMenu() {
-    setLoading(true);
+    if (items.length === 0) setLoading(true);
     setFetchError(null);
 
     // Warm-up indicator if backend takes more than 3.5s (Render cold start)
     const timer = setTimeout(() => {
-      setSlowLoadWarning(true);
+      if (items.length === 0) setSlowLoadWarning(true);
     }, 3500);
 
     try {

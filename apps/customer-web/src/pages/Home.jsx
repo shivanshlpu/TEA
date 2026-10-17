@@ -150,26 +150,28 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch live active coupon and menu items from backend
+  // Fetch live active coupon and menu items in parallel (SWR 0ms instant display)
   useEffect(() => {
-    api.getDefaultBusiness()
-      .then(b => {
-        if (b?.id) {
-          api.getActiveCoupon(b.id)
-            .then(coupon => {
-              if (coupon && coupon.active) {
-                setActiveOffer(coupon);
-              }
-            })
-            .catch(() => {});
+    let isMounted = true;
 
-          return api.getMenu(b.id);
+    // 1. Fetch menu in parallel (0ms instant display from local SWR cache)
+    api.getMenu().then(data => {
+      if (!isMounted) return;
+      if (Array.isArray(data)) setBackendItems(data);
+      else if (data?.items && Array.isArray(data.items)) setBackendItems(data.items);
+    }).catch(() => {});
+
+    // 2. Fetch business & coupon in parallel
+    api.getDefaultBusiness().then(b => {
+      if (!isMounted || !b?.id) return;
+      api.getActiveCoupon(b.id).then(coupon => {
+        if (isMounted && coupon && coupon.active) {
+          setActiveOffer(coupon);
         }
-      })
-      .then(data => {
-        if (Array.isArray(data)) setBackendItems(data);
-      })
-      .catch(() => {});
+      }).catch(() => {});
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
   }, []);
 
   const toggleFavorite = (id, e) => {

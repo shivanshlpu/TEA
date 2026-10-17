@@ -19,6 +19,8 @@ const createCategorySchema = z.object({
 router.get('/', businessFromQuery, async (req, res) => {
   try {
     const cacheKey = `categories:${req.businessId}`;
+    res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=600, stale-while-revalidate=1200');
+
     const cached = cache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');

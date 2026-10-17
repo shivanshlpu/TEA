@@ -77,17 +77,61 @@ async function request(endpoint, options = {}, isRetry = false) {
   return data;
 }
 
+// ── Client-Side SWR Cache (Memory + LocalStorage for 0ms Instant Startup) ──
+const swrCache = new Map();
+
+function getCached(key) {
+  if (swrCache.has(key)) return swrCache.get(key);
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(`cafeos_swr_${key}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        swrCache.set(key, parsed);
+        return parsed;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+function setCached(key, data) {
+  swrCache.set(key, data);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(`cafeos_swr_${key}`, JSON.stringify(data));
+    } catch (_) {}
+  }
+}
+
 export const api = {
   // Auth
   login: (body) => request('/auth/login', { method: 'POST', body }),
   register: (body) => request('/auth/register', { method: 'POST', body }),
   refresh: (body) => request('/auth/refresh', { method: 'POST', body }),
 
-  // Business Config
-  getDefaultBusiness: () => request('/settings/default-business'),
+  // Business Config (SWR: 0ms Instant Startup from Cache + Background Revalidate)
+  getDefaultBusiness: async () => {
+    const cached = getCached('default_business');
+    const fetchPromise = request('/settings/default-business')
+      .then((data) => {
+        if (data && data.id) setCached('default_business', data);
+        return data;
+      })
+      .catch((err) => {
+        if (cached) return cached;
+        throw err;
+      });
 
-  // Menu (public)
-  getMenu: (businessId, params = '') => {
+    // If cached, return immediately to unblock rendering, background fetch updates cache
+    return cached || fetchPromise;
+  },
+
+  // Menu (SWR: 0ms Instant Catalog Display)
+  getMenu: async (businessId, params = '') => {
+    const cacheKey = `menu_${businessId || 'default'}_${params}`;
+    const cached = getCached(cacheKey);
+
     const q = [];
     if (businessId && businessId !== 'undefined' && businessId !== 'null') {
       q.push(`businessId=${encodeURIComponent(businessId)}`);
@@ -97,14 +141,42 @@ export const api = {
       if (cleanParams) q.push(cleanParams);
     }
     const queryStr = q.length > 0 ? `?${q.join('&')}` : '';
-    return request(`/menu${queryStr}`);
+
+    const fetchPromise = request(`/menu${queryStr}`)
+      .then((data) => {
+        if (data) setCached(cacheKey, data);
+        return data;
+      })
+      .catch((err) => {
+        if (cached) return cached;
+        throw err;
+      });
+
+    return cached || fetchPromise;
   },
+
   getMenuItem: (id) => request(`/menu/${id}`),
-  getCategories: (businessId) => {
+
+  // Categories (SWR: 0ms Category Row Display)
+  getCategories: async (businessId) => {
+    const cacheKey = `categories_${businessId || 'default'}`;
+    const cached = getCached(cacheKey);
+
     const query = (businessId && businessId !== 'undefined' && businessId !== 'null')
       ? `?businessId=${encodeURIComponent(businessId)}`
       : '';
-    return request(`/categories${query}`);
+
+    const fetchPromise = request(`/categories${query}`)
+      .then((data) => {
+        if (data) setCached(cacheKey, data);
+        return data;
+      })
+      .catch((err) => {
+        if (cached) return cached;
+        throw err;
+      });
+
+    return cached || fetchPromise;
   },
 
   // Cart

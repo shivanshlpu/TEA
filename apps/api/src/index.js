@@ -176,10 +176,19 @@ app.use(xss());
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 // Attach Prisma, Socket.io, and Cache to request for use in routes
-app.use((req, _res, next) => {
+app.use((req, res, next) => {
   req.prisma = prisma;
   req.io = io;
   req.cache = cache;
+
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 250 && req.path.startsWith('/api')) {
+      console.warn(`⚡ [Latency Alert] ${req.method} ${req.originalUrl || req.url} completed in ${duration}ms (${res.statusCode})`);
+    }
+  });
+
   next();
 });
 

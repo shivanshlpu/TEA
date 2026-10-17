@@ -43,6 +43,8 @@ router.get('/', businessFromQuery, async (req, res) => {
 
     // Cache key incorporates all query filter permutations
     const cacheKey = `menu:${req.businessId}:${JSON.stringify(req.query)}`;
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+
     const cached = cache.get(cacheKey);
     if (cached) {
       res.setHeader('X-Cache', 'HIT');
