@@ -21,6 +21,8 @@ const AUTH_DIR = path.resolve(__dirname, '../../data/baileys_auth');
 
 let sock = null;
 let currentQrDataUrl = null;
+let currentPairingCode = null;
+let currentPairingPhone = null;
 let isConnected = false;
 let connectedUser = null;
 let reconnectAttempts = 0;
@@ -92,6 +94,8 @@ export async function initBaileys() {
         isConnected = true;
         reconnectAttempts = 0;
         currentQrDataUrl = null;
+        currentPairingCode = null;
+        currentPairingPhone = null;
         connectedUser = sock.user;
         const cleanNumber = (connectedUser?.id || '').split(':')[0] || 'Connected';
         console.log(`✅ WhatsApp successfully connected as: +${cleanNumber} (${connectedUser?.name || 'Tea Bhatti Cafe'})`);
@@ -106,7 +110,7 @@ export async function initBaileys() {
 }
 
 /**
- * Get live WhatsApp connection status and current QR code
+ * Get live WhatsApp connection status, current QR code, or pairing code
  */
 export function getWhatsAppStatus() {
   const phone = (connectedUser?.id || '').split(':')[0] || '';
@@ -115,12 +119,61 @@ export function getWhatsAppStatus() {
     phone: phone ? `+${phone}` : null,
     name: connectedUser?.name || 'Tea Bhatti Cafe',
     qr: isConnected ? null : currentQrDataUrl,
+    pairingCode: isConnected ? null : currentPairingCode,
+    pairingCodeFormatted: isConnected ? null : (currentPairingCode ? currentPairingCode.match(/.{1,4}/g)?.join('-') || currentPairingCode : null),
+    pairingPhone: isConnected ? null : currentPairingPhone,
     authDirExists: fs.existsSync(AUTH_DIR),
   };
 }
 
 /**
- * Disconnect and purge session for fresh QR scan
+ * Request an 8-digit WhatsApp pairing code for linking via phone number
+ * @param {string} rawPhone
+ * @returns {Promise<{ success: boolean, code: string, formattedCode: string, phone: string }>}
+ */
+export async function requestWhatsAppPairingCode(rawPhone) {
+  if (isConnected && sock?.user) {
+    throw new Error('WhatsApp is already connected as ' + (sock.user?.id || 'active account'));
+  }
+
+  // Ensure socket is initialized
+  if (!sock) {
+    await initBaileys();
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  // Sanitize phone number to digits only
+  let digits = String(rawPhone || '').replace(/\D/g, '');
+  if (digits.length === 10) {
+    digits = `91${digits}`; // Default to India (+91) if 10 digits
+  } else if (digits.startsWith('0') && digits.length === 11) {
+    digits = `91${digits.slice(1)}`;
+  }
+
+  if (digits.length < 10 || digits.length > 15) {
+    throw new Error('Please enter a valid 10-digit mobile number (e.g. 9009149694).');
+  }
+
+  try {
+    const code = await sock.requestPairingCode(digits);
+    currentPairingCode = code;
+    currentPairingPhone = digits;
+    const formattedCode = code ? code.match(/.{1,4}/g)?.join('-') || code : '';
+    console.log(`🔑 WhatsApp pairing code generated for +${digits}: ${formattedCode}`);
+    return {
+      success: true,
+      code,
+      formattedCode,
+      phone: digits,
+    };
+  } catch (err) {
+    console.error('Failed to request pairing code:', err);
+    throw new Error(err.message || 'Failed to generate pairing code. Please try again.');
+  }
+}
+
+/**
+ * Disconnect and purge session for fresh connection (QR or pairing code)
  */
 export async function logoutWhatsApp() {
   try {
@@ -135,8 +188,10 @@ export async function logoutWhatsApp() {
   isConnected = false;
   connectedUser = null;
   currentQrDataUrl = null;
+  currentPairingCode = null;
+  currentPairingPhone = null;
   setTimeout(initBaileys, 2000);
-  return { success: true, message: 'Session reset. New QR code generating...' };
+  return { success: true, message: 'Session reset. Ready for QR scan or pairing code...' };
 }
 
 /**

@@ -53,7 +53,7 @@ router.get('/default-business', async (req, res) => {
   }
 });
 
-import { getWhatsAppStatus, logoutWhatsApp } from '../lib/baileys.js';
+import { getWhatsAppStatus, logoutWhatsApp, requestWhatsAppPairingCode } from '../lib/baileys.js';
 
 // ── GET /whatsapp-status ──
 router.get('/whatsapp-status', authenticate, authorize('owner', 'manager'), async (req, res) => {
@@ -63,6 +63,22 @@ router.get('/whatsapp-status', authenticate, authorize('owner', 'manager'), asyn
   } catch (err) {
     console.error('WhatsApp status error:', err);
     res.json({ ready: false, qr: null, error: err.message });
+  }
+});
+
+// ── POST /whatsapp/pairing-code ──
+// Request 8-digit pairing code to connect WhatsApp using mobile phone number
+router.post('/whatsapp/pairing-code', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number is required to generate pairing code' });
+    }
+    const result = await requestWhatsAppPairingCode(phone);
+    res.json(result);
+  } catch (err) {
+    console.error('WhatsApp pairing code error:', err);
+    res.status(400).json({ error: err.message || 'Failed to generate pairing code' });
   }
 });
 
