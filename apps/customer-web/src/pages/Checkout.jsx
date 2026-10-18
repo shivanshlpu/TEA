@@ -625,7 +625,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex items-center gap-2 text-emerald-800 text-[11px] pt-1 border-t border-emerald-200/60">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                  <span>100% Refund Guarantee — Automatically refunded to your original source account (credited in 5–7 working days) if cancelled before preparation</span>
+                  <span>100% Refund Guarantee — Automatically returned to your source account if cancelled before preparation</span>
                 </div>
               </div>
 

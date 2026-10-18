@@ -455,7 +455,7 @@ export default function Orders() {
                     <div>
                       <span className="text-[10px] font-bold text-emerald-800 uppercase block">20% Advance</span>
                       <span className="font-mono font-black text-emerald-700 text-sm">₹{advance}</span>
-                      <span className="text-[9px] text-emerald-600 block">Stripe / Online</span>
+                      <span className="text-[9px] text-emerald-600 block">Razorpay / Online</span>
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-amber-900 uppercase block">80% Balance Due</span>

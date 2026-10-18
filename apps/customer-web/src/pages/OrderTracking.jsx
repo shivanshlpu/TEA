@@ -1029,13 +1029,10 @@ export default function OrderTracking() {
             </div>
 
             <div className="space-y-3 text-xs text-text-secondary leading-relaxed">
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1">
                 <span className="font-bold block text-emerald-900 text-sm">1. 5-Minute Free Cancellation Window</span>
                 <p className="text-xs text-emerald-800">
-                  Customers can cancel any order directly within the first <strong>5 minutes</strong> of placing it. When cancelled within this grace window, your 20% advance payment is automatically initiated for a refund to your original source account (UPI / Bank) via Razorpay.
-                </p>
-                <p className="text-[11px] text-emerald-900/80 pt-1 border-t border-emerald-200/60 font-medium">
-                  <strong>Banking Timeline:</strong> Refunds are initiated instantly. As per standard RBI banking clearance, funds are credited to your bank account / UPI app within <strong>5–7 working days</strong> (UPI refunds typically reflect within 24–48 hours).
+                  Customers can cancel any order directly within the first <strong>5 minutes</strong> of placing it. When cancelled within this grace window, your 20% advance payment is automatically refunded.
                 </p>
               </div>
 

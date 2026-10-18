@@ -110,7 +110,6 @@ router.post('/verify-payment', async (req, res) => {
               paymentUtr: payment_id,
               razorpayOrderId: order_id,
               razorpayPaymentId: payment_id,
-              stripePaymentIntentId: payment_id,
               status: newStatus,
               paidAt: new Date(),
               paymentRejectReason: null,

@@ -393,7 +393,7 @@ export default function PickupManagement() {
             </div>
           </div>
           <div className="text-2xl font-mono font-black text-emerald-800">₹{totalAdvanceCollected.toFixed(0)}</div>
-          <span className="text-[11px] text-emerald-700 font-medium">Secured via Stripe / Online</span>
+          <span className="text-[11px] text-emerald-700 font-medium">Secured via Razorpay</span>
         </div>
 
         <div className="card p-4 sm:p-5 border-2 border-amber-300/80 bg-amber-50/40 shadow-sm">

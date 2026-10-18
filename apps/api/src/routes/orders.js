@@ -10,7 +10,6 @@ import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 import { requireBusinessScope } from '../middleware/businessScope.js';
 import { sendWhatsAppNotification, sendWhatsAppTemplate } from '../lib/whatsapp.js';
 import { sendPickupSoonAlert, sendOrderReadyAlert } from '../lib/baileys.js';
-import { createPaymentIntent, processRefund } from '../lib/stripe.js';
 import {
   createRazorpayOrder,
   verifyRazorpaySignature,
@@ -1231,7 +1230,6 @@ router.post('/:id/razorpay-verify', authenticate, async (req, res) => {
         paymentUtr: razorpayPaymentId,
         razorpayPaymentId,
         razorpayOrderId,
-        stripePaymentIntentId: razorpayPaymentId,
         status: newOrderStatus,
         paidAt: new Date(),
         paymentRejectReason: null,
@@ -1300,134 +1298,6 @@ router.post('/:id/razorpay-verify', authenticate, async (req, res) => {
   }
 });
 
-// ── POST /orders/:id/stripe-intent — Create Stripe Payment Intent for 20% advance ──
-router.post('/:id/stripe-intent', authenticate, async (req, res) => {
-  try {
-    const order = await req.prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: { customer: { include: { user: true } } },
-    });
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-
-    const advanceAmount = order.advanceAmount || Math.round(order.total * 0.20 * 100) / 100;
-    const balanceAmount = order.balanceAmount || Math.round((order.total - advanceAmount) * 100) / 100;
-
-    const paymentIntent = await createPaymentIntent({
-      amount: advanceAmount,
-      currency: 'inr',
-      orderId: order.id,
-      customerName: order.customer?.user?.name || req.user.name,
-      metadata: {
-        pickupCode: order.pickupCode,
-        businessId: order.businessId,
-      },
-    });
-
-    res.json({
-      paymentIntentId: paymentIntent.id,
-      clientSecret: paymentIntent.clientSecret,
-      advanceAmount,
-      balanceAmount,
-      total: order.total,
-      pickupCode: order.pickupCode,
-      currency: paymentIntent.currency,
-      isSimulator: paymentIntent.isSimulator || false,
-    });
-  } catch (err) {
-    console.error('Stripe intent error:', err);
-    res.status(500).json({ error: 'Failed to create payment intent' });
-  }
-});
-
-// ── POST /orders/:id/stripe-confirm — Confirm Stripe payment & generate receipt ──
-router.post('/:id/stripe-confirm', authenticate, async (req, res) => {
-  try {
-    const { paymentIntentId } = req.body;
-    const order = await req.prisma.order.findUnique({
-      where: { id: req.params.id },
-      include: {
-        items: { include: { menuItem: true } },
-        business: true,
-        customer: { include: { user: true } },
-      },
-    });
-    if (!order) return res.status(404).json({ error: 'Order not found' });
-
-    const advanceAmount = order.advanceAmount || Math.round(order.total * 0.20 * 100) / 100;
-    const balanceAmount = order.balanceAmount || Math.round((order.total - advanceAmount) * 100) / 100;
-
-    const updated = await req.prisma.order.update({
-      where: { id: req.params.id },
-      data: {
-        paymentStatus: 'advance_paid',
-        stripePaymentIntentId: paymentIntentId || `pi_test_${Date.now()}`,
-        paidAt: new Date(),
-        advanceAmount,
-        balanceAmount,
-      },
-      include: {
-        items: { include: { menuItem: true } },
-        business: true,
-        customer: { include: { user: true } },
-      },
-    });
-
-    await req.prisma.orderStatusLog.create({
-      data: { orderId: updated.id, status: 'payment_advance_received' },
-    });
-
-    req.io.to(`order:${updated.id}`).emit('payment-update', {
-      orderId: updated.id,
-      paymentStatus: 'advance_paid',
-      advanceAmount,
-      balanceAmount,
-    });
-    req.io.to(`business:${updated.businessId}`).emit('order-updated', {
-      orderId: updated.id,
-      paymentStatus: 'advance_paid',
-      status: updated.status,
-    });
-
-    const receipt = {
-      receiptNumber: `REC-TB-${updated.id.slice(-6).toUpperCase()}`,
-      orderId: updated.id,
-      pickupCode: updated.pickupCode || 'TB-READY',
-      createdAt: updated.createdAt,
-      paidAt: updated.paidAt,
-      customerName: updated.customer?.user?.name || 'Valued Customer',
-      customerPhone: updated.customer?.user?.phone || '',
-      businessName: updated.business?.name || 'Tea Bhatti',
-      businessAddress: updated.business?.address || 'Near Medical College, Shahdol, MP',
-      businessPhone: updated.business?.phoneNumber || '+919009149694',
-      items: updated.items.map(item => ({
-        name: item.menuItem?.name || 'Item',
-        quantity: item.quantity,
-        priceEach: item.priceEach,
-        total: item.priceEach * item.quantity,
-      })),
-      subtotal: updated.subtotal,
-      discount: updated.discount,
-      packingCharge: updated.packingCharge,
-      gst: updated.gst,
-      total: updated.total,
-      amountPaidNow: advanceAmount,
-      balanceDueAtShop: balanceAmount,
-      paymentMethod: 'Stripe Card / Online (20% Upfront)',
-      transactionId: updated.stripePaymentIntentId,
-      pickupInstructions: 'Show this receipt / Pickup Code at the counter when you arrive. Pay the remaining 80% balance (Cash/UPI) to collect your order!',
-    };
-
-    res.json({
-      success: true,
-      message: '20% advance paid successfully! Order confirmed for pickup.',
-      order: updated,
-      receipt,
-    });
-  } catch (err) {
-    console.error('Stripe confirm error:', err);
-    res.status(500).json({ error: 'Failed to confirm Stripe payment' });
-  }
-});
 
 // ── GET /orders/:id/receipt — Fetch payment receipt ──
 router.get('/:id/receipt', authenticate, async (req, res) => {
@@ -1483,7 +1353,7 @@ router.get('/:id/receipt', authenticate, async (req, res) => {
       amountPaidNow: ['advance_paid', 'fully_paid', 'verified'].includes(order.paymentStatus) ? advanceAmount : 0,
       balanceDueAtShop: order.paymentStatus === 'fully_paid' ? 0 : balanceAmount,
       paymentStatus: order.paymentStatus,
-      transactionId: order.stripePaymentIntentId || order.paymentUtr || 'N/A',
+      transactionId: order.razorpayPaymentId || order.paymentUtr || 'N/A',
       pickupInstructions: 'Show this receipt / Pickup Code at Tea Bhatti counter. Pay remaining 80% balance when collecting.',
     };
 
@@ -1625,13 +1495,6 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
       } catch (rErr) {
         console.warn(`[Razorpay] Refund warning on cancel-refund: ${rErr.message}`);
       }
-    } else if (hadAdvance && order.stripePaymentIntentId) {
-      // Process Stripe Refund fallback
-      refundResult = await processRefund({
-        paymentIntentId: order.stripePaymentIntentId,
-        amount: advanceAmount,
-        reason: isStaff ? 'order_cancelled_by_admin' : 'order_cancelled_by_customer',
-      });
     }
 
     const updated = await req.prisma.order.update({
@@ -1742,12 +1605,6 @@ router.post('/:id/refund',
         } catch (rErr) {
           console.warn(`[Razorpay] Refund API warning: ${rErr.message}`);
         }
-      } else if (order.stripePaymentIntentId) {
-        refundResult = await processRefund({
-          paymentIntentId: order.stripePaymentIntentId,
-          amount: reqAmount,
-          reason: req.body.reason || 'owner_initiated_refund',
-        });
       }
 
       const updated = await req.prisma.order.update({
