@@ -763,7 +763,7 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       cancelledBy,
       refundCode,
       message: cancelledBy === 'admin'
-        ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
+        ? `Your order has been cancelled by the admin. Your 20% advance payment of ₹${updated.refundAmount || 0}.00 has been refunded to your original payment method via Razorpay.`
         : undefined,
       timestamp: new Date(),
     });
@@ -1525,7 +1525,7 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
       refundStatus: updated.refundStatus,
       refundAmount: updated.refundAmount,
       message: cancelledBy === 'admin'
-        ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
+        ? `Your order has been cancelled by the admin. Your 20% advance payment of ₹${updated.refundAmount || 0}.00 has been refunded to your original payment method via Razorpay.`
         : undefined,
       timestamp: new Date(),
     });

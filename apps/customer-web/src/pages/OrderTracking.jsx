@@ -668,46 +668,26 @@ export default function OrderTracking() {
               </div>
               <p className="text-xs sm:text-sm font-semibold text-red-900 leading-relaxed">
                 {order.cancelledBy === 'admin'
-                  ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
-                  : 'This order has been cancelled and will not be prepared.'}
+                  ? `Your order has been cancelled by the admin. Your 20% advance payment of ₹${order.refundAmount || advanceAmount}.00 has been refunded to your original payment method via Razorpay.`
+                  : `This order has been cancelled and will not be prepared. Your 20% advance payment of ₹${order.refundAmount || advanceAmount}.00 has been refunded to your original payment method via Razorpay.`}
               </p>
             </div>
           </div>
 
-          {/* Prominent 100% Full Refund Banner for Admin Cancellations */}
-          {order.cancelledBy === 'admin' && (
-            <div className={`p-4 rounded-2xl border-2 space-y-2 animate-fade-in shadow-xs ${
-              order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
-                : 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-            }`}>
+          {/* Refund Notice Banner */}
+          {(order.refundStatus === 'refunded' || order.refundStatus === 'completed' || (order.refundAmount && order.refundAmount > 0)) && (
+            <div className="p-4 rounded-2xl border-2 space-y-2 animate-fade-in shadow-xs bg-emerald-50 border-emerald-400 text-emerald-950">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                    ? '100% Full Refund Initiated via Razorpay'
-                    : '100% Full Refund Guaranteed'}
+                  <span>20% Advance Refund Processed via Razorpay</span>
                 </div>
-                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 font-mono ${
-                  order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
-                    : 'bg-emerald-200 text-emerald-900 border-emerald-300'
-                }`}>
-                  {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
-                    <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Refund Initiated
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processing Refund
-                    </>
-                  )}
+                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 font-mono bg-emerald-600 text-white border-emerald-700 shadow-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Refund Initiated
                 </span>
               </div>
               <p className="text-xs text-emerald-900 leading-relaxed">
-                {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                  ? `Your 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00 has been initiated through Razorpay and will be credited to your original payment method within 5–7 working days (typically within 24–48 hours for UPI).`
-                  : `Since this order was cancelled by the cafe admin, you are entitled to a 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00. No cancellation fees apply. Your refund has been initiated and will reach your account within 5–7 working days.`}
+                Your 20% advance payment of ₹{order.refundAmount || advanceAmount}.00 has been refunded through Razorpay back to your original source account (UPI / Bank).
               </p>
             </div>
           )}
@@ -734,8 +714,7 @@ export default function OrderTracking() {
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">Refund Amount:</span>
               <span className="font-mono font-bold text-emerald-700 text-sm">
-                ₹{order.cancelledBy === 'admin' ? (order.total || order.refundAmount || advanceAmount) : (order.refundAmount || advanceAmount)}.00
-                {order.cancelledBy === 'admin' ? ' (100% Full Refund)' : ''}
+                ₹{order.refundAmount || advanceAmount}.00 (20% Advance)
               </span>
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
@@ -752,7 +731,7 @@ export default function OrderTracking() {
               {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
                 ? `The refund has been completed under reference ${refundCode}. If you have any questions, you can present this reference code to Tea Bhatti Cafe.`
                 : (order.cancelledBy === 'admin'
-                  ? `The cafe admin has scheduled your full refund under code ${refundCode}. You can present this reference if you have any questions.`
+                  ? `The cafe admin has scheduled your advance refund under code ${refundCode}. You can present this reference if you have any questions.`
                   : `This Refund Reference Code (${refundCode}) is specifically provided for you and the Tea Bhatti Cafe owner to track and settle your refund.`)}
             </p>
           </div>
