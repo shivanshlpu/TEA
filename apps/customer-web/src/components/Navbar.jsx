@@ -87,10 +87,10 @@ export default function Navbar() {
             <Link to="/" className="flex items-center gap-2.5 group shrink-0">
               <div className="w-[38px] h-[38px] bg-black rounded-lg flex items-center justify-center p-1 shadow-sm overflow-hidden">
                 <img
-                  src="/assets/logo.png"
+                  src="/assets/logo.webp"
                   alt="Tea Bhatti Cafe"
                   className="w-full h-full object-contain"
-                  onError={(e) => { e.target.src = '/teabhatti-logo.png'; }}
+                  onError={(e) => { e.target.src = '/assets/logo.png'; }}
                 />
               </div>
               <div className="flex flex-col justify-center">

@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { requireBusinessScope } from '../middleware/businessScope.js';
+import cache from '../lib/cache.js';
 
 const router = Router();
 
@@ -14,6 +15,13 @@ router.get(['/summary', '/stats'],
   requireBusinessScope,
   async (req, res) => {
     try {
+      const cacheKey = `dashboard:${req.businessId}:stats`;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        return res.json(cached);
+      }
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -73,7 +81,7 @@ router.get(['/summary', '/stats'],
         take: 10,
       });
 
-      res.json({
+      const responsePayload = {
         todayOrders,
         pendingCount,
         preparingCount,
@@ -82,7 +90,11 @@ router.get(['/summary', '/stats'],
         todayRevenue: todayRevenue._sum.total || 0,
         totalCustomers,
         recentOrders,
-      });
+      };
+
+      cache.set(cacheKey, responsePayload, 10); // 10s TTL
+      res.setHeader('X-Cache', 'MISS');
+      res.json(responsePayload);
     } catch (err) {
       console.error('Dashboard error:', err);
       res.status(500).json({ error: 'Failed to fetch dashboard' });

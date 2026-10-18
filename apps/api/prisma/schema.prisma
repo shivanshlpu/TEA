@@ -173,6 +173,7 @@ model Order {
   @@index([businessId, status, createdAt])
   @@index([customerId, createdAt])
   @@index([businessId, createdAt])
+  @@index([status, readySoon])
   @@index([pickupCode])
   @@index([paymentStatus])
 }

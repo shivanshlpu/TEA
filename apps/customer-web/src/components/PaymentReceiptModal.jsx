@@ -89,9 +89,10 @@ export default function PaymentReceiptModal({ receipt, onClose, onTrackOrder }) 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img 
-                src="/teabhatti-logo.png" 
+                src="/teabhatti-logo.webp" 
                 alt="Tea Bhatti" 
                 className="w-10 h-10 rounded-2xl bg-white p-1 shadow-md object-contain"
+                onError={(e) => { e.target.src = '/teabhatti-logo.png'; }}
               />
               <div>
                 <h2 className="text-lg font-heading font-black tracking-tight text-white leading-tight">
@@ -151,9 +152,10 @@ export default function PaymentReceiptModal({ receipt, onClose, onTrackOrder }) 
           <div className="bill-header text-center pb-2 border-b-2 border-neutral-900">
             <div className="flex items-center justify-center gap-2 mb-0.5">
               <img 
-                src="/teabhatti-logo.png" 
+                src="/teabhatti-logo.webp" 
                 alt="Logo" 
                 className="w-7 h-7 sm:w-8 sm:h-8 object-contain rounded-lg"
+                onError={(e) => { e.target.src = '/teabhatti-logo.png'; }}
               />
               <h1 className="text-lg sm:text-xl font-black uppercase tracking-wider text-neutral-900 font-serif">
                 Tea Bhatti Cafe

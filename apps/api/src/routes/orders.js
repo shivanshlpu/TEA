@@ -13,6 +13,13 @@ import { sendPickupSoonAlert, sendOrderReadyAlert } from '../lib/baileys.js';
 import { createPaymentIntent, processRefund } from '../lib/stripe.js';
 import { sendPushToBusiness } from '../lib/pushNotifications.js';
 import QRCode from 'qrcode';
+import cache from '../lib/cache.js';
+
+export function invalidateDashboardCache(businessId) {
+  if (!businessId) return;
+  cache.del(`dashboard:${businessId}:stats`);
+  cache.delPrefix(`reports:${businessId}`);
+}
 
 const router = Router();
 
@@ -354,6 +361,7 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
       itemCount: order.items.length,
       createdAt: order.createdAt,
     });
+    invalidateDashboardCache(business.id);
 
     // Web Push alert to owner devices (background service worker push)
     sendPushToBusiness(business.id, {
@@ -663,6 +671,7 @@ router.patch('/:id/status',
         status: updated.status,
         paymentStatus: updated.paymentStatus,
       });
+      invalidateDashboardCache(updated.businessId);
 
       // Clear any pending verification follow-up timer
       cancelVerificationFollowUp(updated.id);
@@ -778,6 +787,7 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       cancelledBy,
       refundCode,
     });
+    invalidateDashboardCache(updated.businessId);
 
     res.json(updated);
   } catch (err) {
@@ -989,6 +999,7 @@ router.patch('/:id/payment/verify',
         paymentStatus: newPaymentStatus,
         paymentRejectReason: rejectReason,
       });
+      invalidateDashboardCache(updated.businessId);
 
       sendPushToBusiness(updated.businessId, {
         title: action === 'verify' ? 'Payment Verified! ✅' : 'Payment Rejected ❌',

@@ -137,7 +137,7 @@ export default function Login({ defaultRegister = false }) {
           <div 
             className="absolute inset-0 bg-cover bg-no-repeat transition-transform duration-1000 scale-[1.02]"
             style={{ 
-              backgroundImage: "url('/images/tea-bhatti-auth-bg.png')",
+              backgroundImage: "url('/images/tea-bhatti-auth-bg.webp')",
               backgroundPosition: 'left center'
             }}
           />
@@ -176,7 +176,7 @@ export default function Login({ defaultRegister = false }) {
           <div 
             className="absolute inset-0 bg-cover bg-no-repeat"
             style={{ 
-              backgroundImage: "url('/images/tea-bhatti-auth-bg.png')",
+              backgroundImage: "url('/images/tea-bhatti-auth-bg.webp')",
               backgroundPosition: 'left center'
             }}
           />
@@ -203,7 +203,7 @@ export default function Login({ defaultRegister = false }) {
           <div 
             className="absolute top-0 right-0 bottom-0 w-1/2 opacity-[0.08] pointer-events-none hidden lg:block bg-no-repeat bg-right-top"
             style={{ 
-              backgroundImage: "url('/images/tea-bhatti-auth-bg.png')",
+              backgroundImage: "url('/images/tea-bhatti-auth-bg.webp')",
               backgroundPosition: 'right 20px',
               backgroundSize: 'cover'
             }}

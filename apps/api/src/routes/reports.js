@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { requireBusinessScope } from '../middleware/businessScope.js';
+import cache from '../lib/cache.js';
 
 const router = Router();
 
@@ -81,6 +82,13 @@ router.get('/',
   async (req, res) => {
     try {
       const { range = 'today', from, to, status } = req.query;
+      const cacheKey = `reports:${req.businessId}:${range}:${from || ''}:${to || ''}:${status || ''}`;
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        return res.json(cached);
+      }
+
       const { start, end } = getISTDateRange(range, from, to);
 
       const where = {
@@ -95,9 +103,10 @@ router.get('/',
         where.status = status;
       }
 
-      // Fetch all orders in the range
+      // Fetch orders in the range (capped to 1,000 to prevent event loop blocking on free tier)
       const orders = await req.prisma.order.findMany({
         where,
+        take: 1000,
         include: {
           customer: {
             include: {
@@ -191,7 +200,7 @@ router.get('/',
         },
       });
 
-      res.json({
+      const reportPayload = {
         summary: {
           totalOrders,
           validOrders: validOrders.length,
@@ -231,7 +240,11 @@ router.get('/',
           itemsCount: o.items.reduce((s, i) => s + i.quantity, 0),
         })),
         generatedAt: new Date().toISOString(),
-      });
+      };
+
+      cache.set(cacheKey, reportPayload, 30); // 30s TTL
+      res.setHeader('X-Cache', 'MISS');
+      res.json(reportPayload);
     } catch (err) {
       console.error('Reports fetch error:', err);
       res.status(500).json({ error: 'Failed to generate report: ' + err.message });

@@ -38,10 +38,21 @@ class FastCache {
     const ttl = (ttlSeconds ? ttlSeconds * 1000 : this.defaultTtl);
     const expiresAt = Date.now() + ttl;
 
-    // Enforce max capacity by evicting oldest entry (LRU)
+    // Evict expired entries first, or evict oldest if still at capacity
     if (this.store.size >= this.maxItems && !this.store.has(key)) {
-      const oldestKey = this.store.keys().next().value;
-      if (oldestKey) this.store.delete(oldestKey);
+      const now = Date.now();
+      let pruned = false;
+      for (const [k, v] of this.store.entries()) {
+        if (now > v.expiresAt) {
+          this.store.delete(k);
+          pruned = true;
+          break;
+        }
+      }
+      if (!pruned) {
+        const oldestKey = this.store.keys().next().value;
+        if (oldestKey) this.store.delete(oldestKey);
+      }
     }
 
     this.store.set(key, { value, expiresAt });
@@ -66,6 +77,19 @@ class FastCache {
     return count;
   }
 
+  // Active sweep to prevent inactive expired entries from holding memory
+  pruneExpired() {
+    const now = Date.now();
+    let count = 0;
+    for (const [key, item] of this.store.entries()) {
+      if (now > item.expiresAt) {
+        this.store.delete(key);
+        count++;
+      }
+    }
+    return count;
+  }
+
   clear() {
     this.store.clear();
   }
@@ -84,8 +108,16 @@ class FastCache {
 }
 
 export const cache = new FastCache({
-  maxItems: 3000,
+  maxItems: 500,
   defaultTtlSeconds: 180, // 3 minutes
 });
+
+// Periodic sweeper unref'd so it never keeps Node alive on shutdown
+const pruneInterval = setInterval(() => {
+  cache.pruneExpired();
+}, 60000);
+if (pruneInterval.unref) {
+  pruneInterval.unref();
+}
 
 export default cache;

@@ -126,9 +126,10 @@ export default function InstallPrompt() {
             {/* App Icon */}
             <div className="w-14 h-14 rounded-2xl p-1 bg-amber-50 border border-amber-200 shrink-0 shadow-sm overflow-hidden flex items-center justify-center">
               <img
-                src="/teabhatti-logo.png"
+                src="/teabhatti-logo.webp"
                 alt="Tea Bhatti Cafe Logo"
                 className="w-full h-full object-contain"
+                onError={(e) => { e.target.src = '/teabhatti-logo.png'; }}
               />
             </div>
 
@@ -181,7 +182,7 @@ export default function InstallPrompt() {
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-border-subtle animate-slide-up">
             <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
               <div className="flex items-center gap-2.5">
-                <img src="/teabhatti-logo.png" alt="Tea Bhatti" className="w-8 h-8 rounded-xl object-contain" />
+                <img src="/teabhatti-logo.webp" alt="Tea Bhatti" className="w-8 h-8 rounded-xl object-contain" onError={(e) => { e.target.src = '/teabhatti-logo.png'; }} />
                 <h3 className="font-heading font-extrabold text-base text-text-primary">
                   Install on iPhone / iPad
                 </h3>

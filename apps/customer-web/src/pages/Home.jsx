@@ -112,15 +112,15 @@ const BEST_SELLERS = [
   },
 ];
 
-// ── User's Original Promotional Posters Preserved ──
+// ── User's Original Promotional Posters (Optimized WebP, 93% smaller) ──
 const PROMO_POSTERS = [
-  { id: 1, image: '/assets/poster1.png', title: 'Welcome to Tea Bhatti Cafe', subtitle: 'A premium pure-veg cafe experience in Shahdol.', link: '/menu' },
-  { id: 2, image: '/assets/poster2.png', title: 'Combo Offer — Save 10%', subtitle: 'Add 4+ items to cart for instant discount.', link: '/menu?category=COMBOS' },
-  { id: 3, image: '/assets/poster3.png', title: 'Freshly Baked Pizzas', subtitle: 'Loaded with real mozzarella and fresh herbs.', link: '/menu?category=PIZZAAAH' },
-  { id: 4, image: '/assets/poster4.png', title: 'Crispy Burgers', subtitle: 'Toasted buns, fresh veggies & golden patties.', link: '/menu?category=BURGERRR' },
-  { id: 5, image: '/assets/poster5.png', title: 'Midnight Cravings', subtitle: 'Hot steaming Maggie made fresh.', link: '/menu?category=MAGGIE' },
-  { id: 6, image: '/assets/poster6.png', title: 'Creamy Pasta Delights', subtitle: 'Rich, spicy, and perfectly seasoned.', link: '/menu?category=PAAAASTA' },
-  { id: 7, image: '/assets/poster7.png', title: 'Signature Vadapav', subtitle: 'Authentic taste with spicy chutneys.', link: '/menu?category=VADA%20PAV' },
+  { id: 1, image: '/assets/poster1.webp', title: 'Welcome to Tea Bhatti Cafe', subtitle: 'A premium pure-veg cafe experience in Shahdol.', link: '/menu' },
+  { id: 2, image: '/assets/poster2.webp', title: 'Combo Offer — Save 10%', subtitle: 'Add 4+ items to cart for instant discount.', link: '/menu?category=COMBOS' },
+  { id: 3, image: '/assets/poster3.webp', title: 'Freshly Baked Pizzas', subtitle: 'Loaded with real mozzarella and fresh herbs.', link: '/menu?category=PIZZAAAH' },
+  { id: 4, image: '/assets/poster4.webp', title: 'Crispy Burgers', subtitle: 'Toasted buns, fresh veggies & golden patties.', link: '/menu?category=BURGERRR' },
+  { id: 5, image: '/assets/poster5.webp', title: 'Midnight Cravings', subtitle: 'Hot steaming Maggie made fresh.', link: '/menu?category=MAGGIE' },
+  { id: 6, image: '/assets/poster6.webp', title: 'Creamy Pasta Delights', subtitle: 'Rich, spicy, and perfectly seasoned.', link: '/menu?category=PAAAASTA' },
+  { id: 7, image: '/assets/poster7.webp', title: 'Signature Vadapav', subtitle: 'Authentic taste with spicy chutneys.', link: '/menu?category=VADA%20PAV' },
 ];
 
 export default function Home() {
@@ -213,11 +213,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3A2618] selection:bg-[#E94B18]/20">
       
-      {/* ── SECTION 1: HERO SECTION INTEGRATING tea-bhatti-hero-bg.png ── */}
+      {/* ── SECTION 1: HERO SECTION INTEGRATING tea-bhatti-hero-bg.webp ── */}
       <section 
         className="relative overflow-hidden pt-24 sm:pt-28 md:pt-32 pb-20 sm:pb-24 md:pb-28 border-b border-[#EBE1D2] bg-[#F7F2E8] bg-no-repeat"
         style={{
-          backgroundImage: `url('/images/tea-bhatti-hero-bg.png')`,
+          backgroundImage: `url('/images/tea-bhatti-hero-bg.webp')`,
           backgroundPosition: 'center 46px',
           backgroundSize: 'cover',
         }}
@@ -480,13 +480,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── SECTION 5: PROMOTION OFFER BANNER INTEGRATING tea-bhatti-offer-bg.png ── */}
+      {/* ── SECTION 5: PROMOTION OFFER BANNER INTEGRATING tea-bhatti-offer-bg.webp ── */}
       {/* Background image contains burger, fries, and kulhad tea on left; open forest green space on center/right */}
       <section className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 mt-14 sm:mt-16">
         <div 
           className="relative rounded-2xl bg-[#1B3626] text-white overflow-hidden p-6 sm:p-8 lg:p-10 shadow-lg bg-cover bg-no-repeat bg-left md:bg-center"
           style={{
-            backgroundImage: `url('/images/tea-bhatti-offer-bg.png')`,
+            backgroundImage: `url('/images/tea-bhatti-offer-bg.webp')`,
           }}
         >
           {/* Subtle overlay on small screens to keep text legible */}
