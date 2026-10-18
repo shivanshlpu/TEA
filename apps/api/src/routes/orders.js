@@ -707,6 +707,32 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
     const cancelledBy = isStaff ? 'admin' : 'customer';
     const refundCode = order.refundCode || `REF-TB-${(order.pickupCode ? order.pickupCode.replace(/^TB-/, '') : order.id.slice(-6)).toUpperCase()}`;
     const refundAmount = order.total || order.advanceAmount || 0;
+    const hadPayment = ['verified', 'advance_paid', 'paid_online', 'fully_paid'].includes(order.paymentStatus);
+
+    let refundStatus = hadPayment ? 'pending' : 'none';
+    let paymentStatus = hadPayment ? 'refunded' : order.paymentStatus;
+    let refundedAt = null;
+
+    if (hadPayment && order.razorpayPaymentId) {
+      try {
+        const refundResult = await processRazorpayRefund({
+          paymentId: order.razorpayPaymentId,
+          amount: refundAmount,
+          notes: {
+            orderId: order.id,
+            refundCode,
+            cancelledBy,
+            reason: `Order cancelled by ${cancelledBy} before preparation`,
+          },
+        });
+        refundStatus = 'refunded';
+        refundedAt = new Date();
+        console.log(`[Razorpay] Automatic refund processed: ${refundResult.id}`);
+      } catch (rErr) {
+        console.warn(`[Razorpay] Refund processing warning on cancel: ${rErr.message}`);
+        refundStatus = 'pending';
+      }
+    }
 
     const updated = await req.prisma.$transaction(async (tx) => {
       const ord = await tx.order.update({
@@ -715,12 +741,14 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
           status: 'cancelled',
           cancelledBy,
           refundCode,
-          refundStatus: 'pending',
-          refundAmount,
+          refundStatus,
+          refundAmount: hadPayment ? refundAmount : 0,
+          paymentStatus,
+          refundedAt,
         },
       });
       await tx.orderStatusLog.create({
-        data: { orderId: ord.id, status: 'cancelled' },
+        data: { orderId: ord.id, status: hadPayment && refundStatus === 'refunded' ? 'cancelled_refund_processed' : 'cancelled' },
       });
       return ord;
     });
@@ -1578,8 +1606,24 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
     const cancelledBy = isStaff ? 'admin' : 'customer';
 
     let refundResult = null;
-    if (hadAdvance && order.stripePaymentIntentId) {
-      // Process Stripe Refund immediately (guaranteed within 1 hr)
+    if (hadAdvance && order.razorpayPaymentId) {
+      try {
+        refundResult = await processRazorpayRefund({
+          paymentId: order.razorpayPaymentId,
+          amount: advanceAmount,
+          notes: {
+            orderId: order.id,
+            refundCode,
+            cancelledBy,
+            reason: isStaff ? 'order_cancelled_by_admin' : 'order_cancelled_by_customer',
+          },
+        });
+        console.log(`[Razorpay] Automatic cancel refund processed: ${refundResult.id}`);
+      } catch (rErr) {
+        console.warn(`[Razorpay] Refund warning on cancel-refund: ${rErr.message}`);
+      }
+    } else if (hadAdvance && order.stripePaymentIntentId) {
+      // Process Stripe Refund fallback
       refundResult = await processRefund({
         paymentIntentId: order.stripePaymentIntentId,
         amount: advanceAmount,
