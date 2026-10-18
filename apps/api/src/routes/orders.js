@@ -755,6 +755,8 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
 
     const isStaff = ['owner', 'manager', 'cashier'].includes(req.user.role);
     const cancelledBy = isStaff ? 'admin' : 'customer';
+    const refundCode = order.refundCode || `REF-TB-${(order.pickupCode ? order.pickupCode.replace(/^TB-/, '') : order.id.slice(-6)).toUpperCase()}`;
+    const refundAmount = order.total || order.advanceAmount || 0;
 
     const updated = await req.prisma.$transaction(async (tx) => {
       const ord = await tx.order.update({
@@ -763,6 +765,8 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
           status: 'cancelled',
           cancelledBy,
           refundCode,
+          refundStatus: 'pending',
+          refundAmount,
         },
       });
       await tx.orderStatusLog.create({
@@ -770,6 +774,8 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       });
       return ord;
     });
+
+    cancelVerificationFollowUp(updated.id);
 
     req.io.to(`order:${updated.id}`).emit('order-status-update', {
       orderId: updated.id,

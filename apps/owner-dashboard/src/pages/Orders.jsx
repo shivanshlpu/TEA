@@ -44,7 +44,7 @@ const STATUS_COLORS = {
 
 export default function Orders() {
   const { apiFetch, user } = useAuth();
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -137,10 +137,14 @@ export default function Orders() {
 
   async function verifyPayment(orderId, action = 'verify') {
     if (action === 'reject') {
-      const confirmed = window.confirm(
-        'Mark this UTR as incorrect?\n\nThe customer will be asked to check their UTR number and re-enter it. Once they submit the updated UTR, the Verify button will reappear here.'
-      );
-      if (!confirmed) return;
+      const ok = await confirm({
+        title: 'Mark UTR as Incorrect?',
+        message: 'The customer will be prompted to check and re-enter their 12-digit UTR number.',
+        confirmText: 'Mark Incorrect',
+        cancelText: 'Back',
+        isDestructive: false,
+      });
+      if (!ok) return;
     }
     try {
       const res = await apiFetch(`/orders/${orderId}/payment/verify`, {
@@ -155,14 +159,19 @@ export default function Orders() {
   }
 
   async function handleCancelOrder(order) {
-    const confirmed = window.confirm(
-      `Cancel order #${order.pickupCode || order.id.slice(-4).toUpperCase()}?\n\nThis will cancel the order from the admin side. The customer will be informed that the order was cancelled by the cafe admin, and will be promised a 100% full refund within one hour.`
-    );
-    if (!confirmed) return;
+    const tokenStr = order.pickupCode || order.id.slice(-4).toUpperCase();
+    const ok = await confirm({
+      title: `Cancel Order #${tokenStr}?`,
+      message: 'Are you sure you want to cancel this order? The customer will be informed and will receive a 100% refund within 1 hour.',
+      confirmText: 'Cancel Order',
+      cancelText: 'Keep Order',
+      isDestructive: true,
+    });
+    if (!ok) return;
 
     try {
       await apiFetch(`/orders/${order.id}/cancel`, { method: 'PATCH' });
-      toast.info(`Order #${order.pickupCode || order.id.slice(-4).toUpperCase()} cancelled by admin. Customer notified of 100% refund within 1 hour.`);
+      toast.info(`Order #${tokenStr} cancelled.`);
       loadOrders();
     } catch (err) {
       toast.error(err.message || 'Failed to cancel order');
