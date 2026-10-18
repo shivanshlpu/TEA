@@ -397,6 +397,12 @@ router.put('/',
       if (closureReason !== undefined) data.closureReason = closureReason ? String(closureReason).trim() : null;
       if (closedDays !== undefined && Array.isArray(closedDays)) data.closedDays = closedDays;
 
+      // Notification Sound & Custom Ringtone (Guarantees root /settings update works on all servers)
+      if (req.body.notificationSoundType !== undefined) data.notificationSoundType = String(req.body.notificationSoundType);
+      if (req.body.soundType !== undefined) data.notificationSoundType = String(req.body.soundType);
+      if (req.body.customNotificationName !== undefined) data.customNotificationName = req.body.customNotificationName ? String(req.body.customNotificationName) : null;
+      if (req.body.customNotificationData !== undefined) data.customNotificationData = req.body.customNotificationData ? String(req.body.customNotificationData) : null;
+
       // Resolve business ID safely to prevent "No record was found for an update"
       let business = await req.prisma.business.findUnique({
         where: { id: req.businessId },
@@ -417,6 +423,16 @@ router.put('/',
       cache.del('settings:default-business');
       if (req.io) {
         req.io.to(`business:${business.id}`).emit('settings-updated', updatedBusiness);
+        if (data.notificationSoundType !== undefined || data.customNotificationData !== undefined) {
+          const soundPayload = {
+            soundType: updatedBusiness.notificationSoundType,
+            customNotificationName: updatedBusiness.customNotificationName,
+            customNotificationData: updatedBusiness.customNotificationData,
+            businessId: business.id,
+          };
+          req.io.to(`business:${business.id}`).emit('notification-sound-updated', soundPayload);
+          req.io.emit('notification-sound-updated', soundPayload);
+        }
       }
 
       // Synchronize user record if it was pointing to an old businessId

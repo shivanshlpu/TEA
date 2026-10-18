@@ -89,12 +89,21 @@ export function NotificationSoundProvider({ children }) {
   useEffect(() => {
     let isMounted = true;
 
-    apiFetch('/settings/notification-sound')
-      .then((data) => {
+    const fetchCloudSound = async () => {
+      try {
+        let data = null;
+        try {
+          data = await apiFetch('/settings/notification-sound');
+        } catch (fetchErr) {
+          // Fallback to root /settings
+          data = await apiFetch('/settings');
+        }
+
         if (!isMounted || !data) return;
-        if (data.soundType) {
-          setSoundType(data.soundType);
-          localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, data.soundType);
+        const activeSoundType = data.soundType || data.notificationSoundType;
+        if (activeSoundType) {
+          setSoundType(activeSoundType);
+          localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, activeSoundType);
         }
         if (data.customNotificationData) {
           setCustomAudioData(data.customNotificationData);
@@ -104,7 +113,7 @@ export function NotificationSoundProvider({ children }) {
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, data.customNotificationName || 'Custom Ringtone');
         } else {
           // If server explicitly reports no custom audio or another soundType
-          if (data.soundType && data.soundType !== 'custom') {
+          if (activeSoundType && activeSoundType !== 'custom') {
             setCustomAudioData(null);
             setCustomAudioName('');
             setIsCloudSynced(false);
@@ -114,10 +123,12 @@ export function NotificationSoundProvider({ children }) {
             setIsCloudSynced(false);
           }
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.warn('Could not fetch cloud notification sound (using cached):', err.message);
-      });
+      }
+    };
+
+    fetchCloudSound();
 
     return () => {
       isMounted = false;
@@ -326,10 +337,22 @@ export function NotificationSoundProvider({ children }) {
               });
             } catch (putErr) {
               console.warn('PUT /settings/notification-sound failed, attempting POST fallback:', putErr.message);
-              res = await apiFetch('/settings/notification-sound', {
-                method: 'POST',
-                body: payload,
-              });
+              try {
+                res = await apiFetch('/settings/notification-sound', {
+                  method: 'POST',
+                  body: payload,
+                });
+              } catch (postErr) {
+                console.warn('POST /settings/notification-sound failed, falling back to root PUT /settings:', postErr.message);
+                res = await apiFetch('/settings', {
+                  method: 'PUT',
+                  body: {
+                    notificationSoundType: 'custom',
+                    customNotificationName: file.name,
+                    customNotificationData: base64,
+                  },
+                });
+              }
             }
             setIsCloudSynced(true);
             resolve({ name: file.name, size: file.size, synced: true });
@@ -359,13 +382,22 @@ export function NotificationSoundProvider({ children }) {
     try {
       const payload = {
         soundType: 'custom',
+        notificationSoundType: 'custom',
         customNotificationName: customAudioName || 'Custom Ringtone',
         customNotificationData: customAudioData,
       };
-      await apiFetch('/settings/notification-sound', {
-        method: 'PUT',
-        body: payload,
-      });
+      try {
+        await apiFetch('/settings/notification-sound', {
+          method: 'PUT',
+          body: payload,
+        });
+      } catch (putErr) {
+        console.warn('PUT /settings/notification-sound failed, attempting fallback to PUT /settings:', putErr.message);
+        await apiFetch('/settings', {
+          method: 'PUT',
+          body: payload,
+        });
+      }
       setIsCloudSynced(true);
       toast.success('Custom ringtone saved to database and synced across all devices!');
     } catch (err) {
@@ -388,7 +420,19 @@ export function NotificationSoundProvider({ children }) {
     try {
       await apiFetch('/settings/notification-sound', { method: 'DELETE' });
     } catch (err) {
-      console.warn('Failed to delete cloud notification sound:', err.message);
+      console.warn('DELETE /settings/notification-sound failed, attempting fallback to PUT /settings:', err.message);
+      try {
+        await apiFetch('/settings', {
+          method: 'PUT',
+          body: {
+            notificationSoundType: 'chime',
+            customNotificationName: null,
+            customNotificationData: null,
+          },
+        });
+      } catch (fallbackErr) {
+        console.warn('Failed to delete cloud notification sound:', fallbackErr.message);
+      }
     }
   };
 
@@ -400,10 +444,17 @@ export function NotificationSoundProvider({ children }) {
 
     // Save to database across all devices
     try {
-      await apiFetch('/settings/notification-sound', {
-        method: 'PUT',
-        body: { soundType: type },
-      });
+      try {
+        await apiFetch('/settings/notification-sound', {
+          method: 'PUT',
+          body: { soundType: type },
+        });
+      } catch (subErr) {
+        await apiFetch('/settings', {
+          method: 'PUT',
+          body: { notificationSoundType: type },
+        });
+      }
     } catch (err) {
       console.warn('Failed to sync sound type to server:', err.message);
     }
