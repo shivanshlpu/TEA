@@ -138,7 +138,7 @@ export default function Orders() {
   async function verifyPayment(orderId, action = 'verify') {
     if (action === 'reject') {
       const confirmed = window.confirm(
-        'Reject this payment?\n\nThe customer will be asked to check their UTR number and try again. Once they re-submit, the Verify and Reject buttons will reappear here.'
+        'Mark this UTR as incorrect?\n\nThe customer will be asked to check their UTR number and re-enter it. Once they submit the updated UTR, the Verify button will reappear here.'
       );
       if (!confirmed) return;
     }
@@ -148,7 +148,7 @@ export default function Orders() {
         body: { action },
       });
       toast.success(
-        res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'Payment rejected. Customer prompted to check UTR and retry.')
+        res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'UTR marked incorrect. Customer prompted to re-enter UTR.')
       );
       loadOrders();
     } catch (err) { toast.error(err.message || 'Failed to verify payment'); }
@@ -384,7 +384,7 @@ export default function Orders() {
                       <div className="flex items-center gap-1.5 p-1.5 bg-rose-50 border border-rose-200 rounded-xl">
                         <span className="text-[11px] font-bold text-rose-800 px-1.5 flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                          Payment Rejected (Awaiting Customer UTR)
+                          UTR Incorrect (Awaiting Customer Re-entry)
                         </span>
                       </div>
                     )}

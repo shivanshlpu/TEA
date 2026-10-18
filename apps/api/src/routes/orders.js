@@ -914,9 +914,16 @@ router.post('/:id/payment/utr', authenticate, validate(utrSchema), async (req, r
       paymentRejectReason: null,
     });
 
+    // Notify owner room of updated order list
+    req.io.to(`business:${updated.businessId}`).emit('order-updated', {
+      orderId: updated.id,
+      status: updated.status,
+      paymentStatus: 'utr_submitted',
+    });
+
     res.json({
       success: true,
-      message: 'UTR reference submitted successfully. Tea Bhatti staff will verify your payment shortly.',
+      message: 'UTR reference submitted. Verifying transaction...',
       paymentStatus: updated.paymentStatus,
       paymentUtr: updated.paymentUtr,
     });
@@ -943,8 +950,9 @@ router.patch('/:id/payment/verify',
       }
 
       const newPaymentStatus = action === 'verify' ? 'verified' : 'rejected';
+      const defaultRejectMsg = 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
       const rejectReason = action === 'reject'
-        ? (reason || 'Payment rejected by cafe: Please check your UTR number and try again.')
+        ? (reason && !reason.includes('rejected by cafe') ? reason : defaultRejectMsg)
         : null;
       // When payment is verified by owner, order automatically advances to accepted
       const newOrderStatus = action === 'verify' && order.status === 'received' ? 'accepted' : order.status;

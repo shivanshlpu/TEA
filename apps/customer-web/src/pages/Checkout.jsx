@@ -131,19 +131,40 @@ export default function Checkout() {
     socket.emit('join-order', pendingOrder.id);
 
     socket.on('payment-update', (data) => {
-      if (data.orderId === pendingOrder.id && (data.paymentStatus === 'verified' || data.paymentStatus === 'advance_paid')) {
-        // Payment verified by owner!
-        localStorage.removeItem('cafeos_pending_order');
-        clearCart();
-        setShowPaymentSuccess(true);
+      if (data.orderId === pendingOrder.id) {
+        if (data.paymentStatus === 'verified' || data.paymentStatus === 'advance_paid') {
+          // Payment verified by system!
+          localStorage.removeItem('cafeos_pending_order');
+          clearCart();
+          setShowPaymentSuccess(true);
+        } else if (data.paymentStatus === 'rejected' || data.paymentStatus === 'failed') {
+          // UTR was incorrect
+          setUtrSuccess(false);
+          setUtrSubmitting(false);
+          const msg = data.paymentRejectReason || 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
+          setError(msg);
+          toast.error(msg);
+        }
       }
     });
 
     socket.on('order-status-update', (data) => {
-      if (data.orderId === pendingOrder.id && data.status === 'accepted') {
-        localStorage.removeItem('cafeos_pending_order');
-        clearCart();
-        setShowPaymentSuccess(true);
+      if (data.orderId === pendingOrder.id) {
+        if (data.status === 'accepted') {
+          localStorage.removeItem('cafeos_pending_order');
+          clearCart();
+          setShowPaymentSuccess(true);
+        } else if (data.status === 'cancelled') {
+          localStorage.removeItem('cafeos_pending_order');
+          clearCart();
+          navigate(`/order/${pendingOrder.id}`);
+        } else if (data.paymentStatus === 'rejected') {
+          setUtrSuccess(false);
+          setUtrSubmitting(false);
+          const msg = data.paymentRejectReason || 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
+          setError(msg);
+          toast.error(msg);
+        }
       }
     });
 
@@ -955,11 +976,21 @@ export default function Checkout() {
                   </button>
                 </div>
 
+                {error && (
+                  <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-950 text-xs font-semibold flex items-start gap-2.5 animate-fade-in shadow-xs">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-rose-900">UTR / Reference Incorrect</p>
+                      <p className="text-rose-800 text-[11px] leading-relaxed">{error}</p>
+                    </div>
+                  </div>
+                )}
+
                 {utrSuccess && (
                   <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-fade-in">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      UTR Reference submitted! Waiting for Tea Bhatti Cafe staff confirmation. Your screen will update automatically.
+                      UTR Reference submitted! Verifying transaction automatically. Your screen will update momentarily.
                     </span>
                   </div>
                 )}

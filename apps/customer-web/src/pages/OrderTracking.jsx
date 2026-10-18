@@ -443,7 +443,7 @@ export default function OrderTracking() {
                   : order.paymentStatus === 'utr_submitted' 
                   ? 'UTR Verification Pending' 
                   : (order.paymentStatus === 'rejected' || order.paymentStatus === 'failed')
-                  ? 'Payment Rejected'
+                  ? 'UTR Incorrect'
                   : 'Pending'}
               </span>
             </div>
@@ -480,7 +480,7 @@ export default function OrderTracking() {
           </div>
         </div>
 
-        {/* Payment Rejected Alert & Dedicated UTR Re-entry Form */}
+        {/* UTR Verification Required Alert & Dedicated UTR Re-entry Form */}
         {(order.paymentStatus === 'rejected' || order.paymentStatus === 'failed') && !isCancelled && (
           <div className="mt-4 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-rose-50 via-red-50 to-amber-50 border-2 border-rose-300 text-rose-950 space-y-3 animate-fade-in shadow-md">
             <div className="flex items-start gap-3">
@@ -490,17 +490,19 @@ export default function OrderTracking() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-heading font-black text-rose-900 text-sm sm:text-base">
-                    Payment Rejected by Cafe
+                    UTR / Reference Number Incorrect
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-200 text-rose-900 border border-rose-300 uppercase">
                     Action Required
                   </span>
                 </div>
                 <p className="text-xs font-bold text-rose-900 leading-relaxed">
-                  {order.paymentRejectReason || 'Payment rejected by cafe: Please check your UTR number and try again.'}
+                  {order.paymentRejectReason && !order.paymentRejectReason.includes('rejected by cafe')
+                    ? order.paymentRejectReason
+                    : 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.'}
                 </p>
                 <p className="text-[11px] text-rose-800">
-                  Please verify the 12-digit UTR reference from your UPI payment app (Google Pay, PhonePe, Paytm, BHIM) and re-submit it below. Once submitted, the cafe owner will immediately see the updated UTR on their dashboard to verify your payment.
+                  UTR is incorrect or reference is not correct. Please check the 12-digit UTR / UPI transaction ID in your payment app (Google Pay, PhonePe, Paytm, BHIM) and enter it below. The system will verify your payment immediately.
                 </p>
               </div>
             </div>
@@ -528,7 +530,7 @@ export default function OrderTracking() {
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    Re-submit UTR
+                    Submit UTR Again
                   </>
                 )}
               </button>
@@ -546,7 +548,7 @@ export default function OrderTracking() {
                   UTR #{order.paymentUtr} Submitted for Verification
                 </p>
                 <p className="text-[11px] text-blue-700">
-                  Tea Bhatti staff has received your payment reference and will verify it momentarily.
+                  Payment reference submitted. Verifying transaction automatically...
                 </p>
               </div>
             </div>
