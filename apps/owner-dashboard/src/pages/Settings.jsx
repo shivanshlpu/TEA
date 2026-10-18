@@ -39,7 +39,10 @@ export default function Settings() {
     updateSoundType,
     customAudioData,
     customAudioName,
+    isCloudSynced,
+    isSyncing,
     uploadCustomSound,
+    retrySyncCustomSound,
     removeCustomSound,
     volume,
     updateVolume,
@@ -587,16 +590,42 @@ export default function Settings() {
               </div>
 
               {customAudioData ? (
-                <div className="p-3 rounded-xl bg-white border border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                <div className={`p-3 rounded-xl bg-white border ${
+                  isCloudSynced ? 'border-emerald-300' : isSyncing ? 'border-amber-300' : 'border-amber-400 bg-amber-50/30'
+                } flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in`}>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      isCloudSynced ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                    }`}>
                       <Music className="w-4 h-4" />
                     </span>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-text-primary truncate">{customAudioName || 'Custom Ringtone'}</p>
-                      <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                        <span>☁️ Saved in Database & Synced Across All Your Devices</span>
-                      </p>
+                      {isSyncing ? (
+                        <p className="text-[10px] text-amber-700 font-semibold flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                          <span>⏳ Syncing ringtone to database & all devices...</span>
+                        </p>
+                      ) : isCloudSynced ? (
+                        <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                          <span>☁️ Saved in Database & Synced Across All Your Devices</span>
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-[10px] text-amber-800 font-semibold flex items-center gap-1">
+                            <span>⚠️ Saved on this device only (Not synced to cloud)</span>
+                          </p>
+                          <button
+                            type="button"
+                            onClick={retrySyncCustomSound}
+                            disabled={isSyncing}
+                            className="text-[10px] px-2 py-0.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded font-bold transition-colors cursor-pointer"
+                            title="Retry persisting to MongoDB Atlas to sync to phones and tablets"
+                          >
+                            Sync to All Devices
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

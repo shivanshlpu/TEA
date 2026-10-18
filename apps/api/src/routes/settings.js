@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, optionalAuth } from '../middleware/auth.js';
 import { requireBusinessScope } from '../middleware/businessScope.js';
 import cache from '../lib/cache.js';
 
@@ -150,7 +150,7 @@ router.patch('/store-status', authenticate, authorize('owner', 'manager'), async
 });
 
 // ── GET /settings/notification-sound (and aliases) ──
-router.get(['/notification-sound', '/custom-sound', '/sound'], authenticate, async (req, res) => {
+router.get(['/notification-sound', '/custom-sound', '/sound'], optionalAuth, async (req, res) => {
   try {
     let bizId = req.user?.businessId || req.businessId;
     let business = null;

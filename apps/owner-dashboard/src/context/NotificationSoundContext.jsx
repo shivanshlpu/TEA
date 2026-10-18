@@ -38,6 +38,8 @@ export function NotificationSoundProvider({ children }) {
   const [soundType, setSoundType] = useState(() => localStorage.getItem(STORAGE_KEYS.SOUND_TYPE) || 'chime');
   const [customAudioData, setCustomAudioData] = useState(() => localStorage.getItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA) || null);
   const [customAudioName, setCustomAudioName] = useState(() => localStorage.getItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME) || '');
+  const [isCloudSynced, setIsCloudSynced] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [volume, setVolume] = useState(() => {
     const v = localStorage.getItem(STORAGE_KEYS.VOLUME);
     return v !== null ? parseFloat(v) : 0.85;
@@ -85,7 +87,6 @@ export function NotificationSoundProvider({ children }) {
 
   // ── Sync notification sound preference from MongoDB Atlas on load/login ──
   useEffect(() => {
-    if (!user) return;
     let isMounted = true;
 
     apiFetch('/settings/notification-sound')
@@ -98,13 +99,20 @@ export function NotificationSoundProvider({ children }) {
         if (data.customNotificationData) {
           setCustomAudioData(data.customNotificationData);
           setCustomAudioName(data.customNotificationName || 'Custom Ringtone');
+          setIsCloudSynced(true);
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, data.customNotificationData);
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, data.customNotificationName || 'Custom Ringtone');
         } else {
-          setCustomAudioData(null);
-          setCustomAudioName('');
-          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
-          localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
+          // If server explicitly reports no custom audio or another soundType
+          if (data.soundType && data.soundType !== 'custom') {
+            setCustomAudioData(null);
+            setCustomAudioName('');
+            setIsCloudSynced(false);
+            localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
+            localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
+          } else {
+            setIsCloudSynced(false);
+          }
         }
       })
       .catch((err) => {
@@ -301,7 +309,8 @@ export function NotificationSoundProvider({ children }) {
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, file.name);
           localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'custom');
 
-          // 2. Persist to MongoDB Atlas across all devices with automatic fallback
+          // 2. Persist to MongoDB Atlas across all devices
+          setIsSyncing(true);
           const payload = {
             soundType: 'custom',
             customNotificationName: file.name,
@@ -309,44 +318,69 @@ export function NotificationSoundProvider({ children }) {
           };
 
           try {
-            await apiFetch('/settings/notification-sound', {
-              method: 'PUT',
-              body: payload,
-            });
-          } catch (putErr) {
-            console.warn('PUT /settings/notification-sound failed, attempting POST fallback:', putErr.message);
+            let res = null;
             try {
-              await apiFetch('/settings/notification-sound', {
+              res = await apiFetch('/settings/notification-sound', {
+                method: 'PUT',
+                body: payload,
+              });
+            } catch (putErr) {
+              console.warn('PUT /settings/notification-sound failed, attempting POST fallback:', putErr.message);
+              res = await apiFetch('/settings/notification-sound', {
                 method: 'POST',
                 body: payload,
               });
-            } catch (postErr) {
-              console.warn('POST fallback failed, attempting /settings/custom-sound:', postErr.message);
-              try {
-                await apiFetch('/settings/custom-sound', {
-                  method: 'POST',
-                  body: payload,
-                });
-              } catch (finalErr) {
-                console.warn('Cloud sync error (local ringtone active):', finalErr.message);
-              }
             }
+            setIsCloudSynced(true);
+            resolve({ name: file.name, size: file.size, synced: true });
+          } catch (syncErr) {
+            setIsCloudSynced(false);
+            console.error('Cloud database sync error:', syncErr);
+            reject(new Error(`Saved locally on this device, but failed to save to cloud database (${syncErr.message || 'Network error'}). Click 'Retry Sync' to sync to other devices.`));
+          } finally {
+            setIsSyncing(false);
           }
-
-          resolve({ name: file.name, size: file.size });
         } catch (err) {
+          setIsSyncing(false);
           reject(err);
         }
       };
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => reject(new Error('Failed to read audio file'));
       reader.readAsDataURL(file);
     });
+  };
+
+  const retrySyncCustomSound = async () => {
+    if (!customAudioData) {
+      toast.error('No custom audio file loaded to sync.');
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const payload = {
+        soundType: 'custom',
+        customNotificationName: customAudioName || 'Custom Ringtone',
+        customNotificationData: customAudioData,
+      };
+      await apiFetch('/settings/notification-sound', {
+        method: 'PUT',
+        body: payload,
+      });
+      setIsCloudSynced(true);
+      toast.success('Custom ringtone saved to database and synced across all devices!');
+    } catch (err) {
+      setIsCloudSynced(false);
+      toast.error('Cloud database sync failed: ' + err.message);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const removeCustomSound = async () => {
     setCustomAudioData(null);
     setCustomAudioName('');
     setSoundType('chime');
+    setIsCloudSynced(false);
     localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
     localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
     localStorage.setItem(STORAGE_KEYS.SOUND_TYPE, 'chime');
@@ -684,12 +718,14 @@ export function NotificationSoundProvider({ children }) {
         if (data.customNotificationData) {
           setCustomAudioData(data.customNotificationData);
           setCustomAudioName(data.customNotificationName || 'Custom Ringtone');
+          setIsCloudSynced(true);
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA, data.customNotificationData);
           localStorage.setItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME, data.customNotificationName || 'Custom Ringtone');
           toast.info(`🔔 Ringtone updated across all devices: "${data.customNotificationName || 'Custom Ringtone'}"`);
         } else {
           setCustomAudioData(null);
           setCustomAudioName('');
+          setIsCloudSynced(false);
           localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_DATA);
           localStorage.removeItem(STORAGE_KEYS.CUSTOM_AUDIO_NAME);
           if (data.soundType) {
@@ -739,7 +775,10 @@ export function NotificationSoundProvider({ children }) {
       updateSoundType,
       customAudioData,
       customAudioName,
+      isCloudSynced,
+      isSyncing,
       uploadCustomSound,
+      retrySyncCustomSound,
       removeCustomSound,
       volume,
       updateVolume,

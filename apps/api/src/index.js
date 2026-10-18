@@ -78,6 +78,7 @@ const corsOriginValidator = (origin, callback) => {
 
 // ── Socket.io ──
 const io = new SocketServer(httpServer, {
+  maxHttpBufferSize: 1e7, // 10MB buffer to allow audio sync broadcast across devices
   cors: {
     origin: corsOriginValidator,
     methods: ['GET', 'POST'],
