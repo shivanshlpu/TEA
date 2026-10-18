@@ -687,12 +687,12 @@ export default function OrderTracking() {
                 </span>
               </div>
               <p className="text-xs text-emerald-900 leading-relaxed">
-                Your 20% advance payment of ₹{order.refundAmount || advanceAmount}.00 has been refunded through Razorpay back to your original source account (UPI / Bank).
+                Your 20% advance payment of ₹{order.refundAmount || advanceAmount}.00 has been refunded through Razorpay back to your original source account (UPI / Bank). Funds typically reflect within <strong>5–7 working days</strong> (UPI payments usually credit within <strong>24–48 hours</strong>).
               </p>
             </div>
           )}
 
-          <div className="p-4 rounded-2xl bg-white border border-red-200 text-xs space-y-2.5 shadow-inner">
+          <div className="p-4 rounded-2xl bg-white border border-red-200 text-xs space-y-3 shadow-inner">
             <div className="flex justify-between items-center font-bold text-text-primary">
               <span className="text-text-secondary">Refund Reference Code:</span>
               <span className="font-mono text-sm px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg border border-amber-300">
@@ -718,16 +718,30 @@ export default function OrderTracking() {
               </span>
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
-              <span className="text-text-secondary">
-                {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? 'Refund Initiated At:' : 'Expected Bank Credit:'}
-              </span>
+              <span className="text-text-secondary">Refund Initiated At:</span>
               <span className="text-emerald-800 font-bold">
-                {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                  ? (order.refundedAt ? new Date(order.refundedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Initiated')
-                  : '5–7 Working Days (Bank TAT)'}
+                {order.refundedAt ? new Date(order.refundedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Initiated'}
               </span>
             </div>
-            <p className="text-[11px] text-text-secondary pt-2 border-t border-border-subtle">
+            <div className="flex justify-between font-semibold text-text-primary border-t border-border-subtle/80 pt-2">
+              <span className="text-text-secondary">Expected Bank / UPI Credit:</span>
+              <span className="text-emerald-800 font-bold">
+                5–7 Working Days (UPI: 24–48 hrs)
+              </span>
+            </div>
+
+            {/* Official Refund Policy Box */}
+            <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-xs text-amber-900">
+                <Clock className="w-3.5 h-3.5 text-amber-700" />
+                Refund Credit Policy & Timeline
+              </p>
+              <p className="text-[11px] leading-relaxed text-amber-900/90">
+                Refunds are initiated immediately via Razorpay upon cancellation. In accordance with Reserve Bank of India (RBI) inter-bank settlement cycles, the amount is credited to your original payment method (bank account / UPI app) within <strong>5–7 working days</strong>. UPI refunds generally reflect within <strong>24–48 hours</strong>.
+              </p>
+            </div>
+
+            <p className="text-[11px] text-text-secondary pt-1 border-t border-border-subtle">
               {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
                 ? `The refund has been completed under reference ${refundCode}. If you have any questions, you can present this reference code to Tea Bhatti Cafe.`
                 : (order.cancelledBy === 'admin'
