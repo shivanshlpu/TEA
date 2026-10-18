@@ -322,7 +322,11 @@ const updateSettingsSchema = z.object({
   isAcceptingOrders: z.boolean().nullish(),
   closureReason: z.string().nullish(),
   closedDays: z.array(z.string()).nullish(),
-});
+  notificationSoundType: z.string().nullish(),
+  soundType: z.string().nullish(),
+  customNotificationName: z.string().nullish(),
+  customNotificationData: z.string().nullish(),
+}).passthrough();
 
 // ── GET /settings ──
 router.get('/',
