@@ -152,6 +152,8 @@ model Order {
   readySoon         Boolean? @default(false)
   readySoonAt       DateTime?
   stripePaymentIntentId String?
+  razorpayOrderId       String?
+  razorpayPaymentId     String?
   refundStatus      String?  @default("none") // none | pending | refunded
   refundAmount      Float?   @default(0)
   refundedAt        DateTime?

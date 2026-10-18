@@ -197,6 +197,11 @@ export const api = {
   trackOrder: (id) => request(`/orders/${id}/track`),
   createStripeIntent: (orderId, token) => request(`/orders/${orderId}/stripe-intent`, { method: 'POST', token }),
   confirmStripePayment: (orderId, body, token) => request(`/orders/${orderId}/stripe-confirm`, { method: 'POST', body, token }),
+  getRazorpayConfig: () => request('/razorpay/config'),
+  createRazorpayOrder: (orderId, token) => request(`/orders/${orderId}/razorpay-order`, { method: 'POST', token }),
+  verifyRazorpayPayment: (orderId, body, token) => request(`/orders/${orderId}/razorpay-verify`, { method: 'POST', body, token }),
+  createStandardOrder: (body) => request('/create-order', { method: 'POST', body }),
+  verifyStandardPayment: (body) => request('/verify-payment', { method: 'POST', body }),
   getOrderReceipt: (orderId, token) => request(`/orders/${orderId}/receipt`, { token }),
   getOrderQr: (orderId) => request(`/orders/${orderId}/qr`),
 

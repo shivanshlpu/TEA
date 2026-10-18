@@ -25,7 +25,8 @@ import {
   Download,
   HelpCircle,
   Check,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -34,6 +35,22 @@ import api, { SOCKET_URL } from '../lib/api.js';
 import { PaymentDoneModal, firePaymentCelebration } from '../components/CelebrationEffects.jsx';
 import PaymentReceiptModal from '../components/PaymentReceiptModal.jsx';
 import { io } from 'socket.io-client';
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 function parseItemAddOns(addOns) {
   if (Array.isArray(addOns)) return addOns;
@@ -81,13 +98,26 @@ export default function Checkout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Payment Method Selection: 'upi_app' vs 'qr_code'
-  const [paymentTab, setPaymentTab] = useState(() => {
-    if (typeof window === 'undefined') return 'upi_app';
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    return isMobile ? 'upi_app' : 'qr_code';
-  });
+  // Payment Method Selection: 'razorpay' vs 'upi_app' vs 'qr_code'
+  const [razorpayConfig, setRazorpayConfig] = useState(null);
+  const [paymentTab, setPaymentTab] = useState('razorpay');
   const [appLaunchAttempted, setAppLaunchAttempted] = useState(false);
+
+  // Check Razorpay Gateway configuration on mount
+  useEffect(() => {
+    const envKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (envKey) {
+      setRazorpayConfig({ key_id: envKey, isAvailable: true });
+    }
+    api.getRazorpayConfig()
+      .then(cfg => {
+        if (cfg?.key_id) {
+          setRazorpayConfig(cfg);
+          setPaymentTab('razorpay');
+        }
+      })
+      .catch(e => console.warn('Razorpay config check:', e));
+  }, []);
 
   // Success modals
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
@@ -275,6 +305,161 @@ export default function Checkout() {
       setUpiData(qrRes);
     } catch (e) {
       console.warn('Failed to load UPI info:', e);
+    }
+  }
+
+  // ── Razorpay Standard Web Checkout Integration ──
+  async function handlePayRazorpay() {
+    if (!isAuthenticated) {
+      navigate('/login?redirect=/checkout');
+      return;
+    }
+
+    if (!storeStatus.isOpen) {
+      setError(storeStatus.reason);
+      toast.error(storeStatus.reason);
+      return;
+    }
+
+    const bId = businessId || businessConfig?.id;
+    if (!bId) {
+      setError('Store configuration not ready');
+      return;
+    }
+
+    setPlacing(true);
+    setError('');
+
+    try {
+      let currentOrder = pendingOrder;
+
+      // Create new order if not already created
+      if (!currentOrder) {
+        const created = await api.createOrder({
+          businessId: bId,
+          items: items.map(i => ({
+            menuItemId: ID_MAP[i.menuItemId] || i.menuItemId,
+            name: i.name,
+            quantity: i.quantity,
+            addOns: i.addOns || [],
+          })),
+          orderType: 'pickup',
+          couponCode: computed?.appliedCoupon?.code || undefined,
+        }, token);
+
+        currentOrder = {
+          id: created.id,
+          pickupCode: created.pickupCode,
+          total: created.total,
+          advanceAmount: created.advanceAmount || Math.round(created.total * 0.20),
+          items: (created.items || items).map(it => ({
+            id: it.id,
+            menuItemId: it.menuItemId,
+            name: it.name || it.menuItem?.name || 'Item',
+            price: Number(it.price ?? it.priceEach) || 0,
+            priceEach: Number(it.priceEach ?? it.price) || 0,
+            quantity: Number(it.quantity) || 1,
+            addOns: parseItemAddOns(it.addOns),
+          })),
+          timestamp: Date.now(),
+        };
+
+        localStorage.setItem('cafeos_pending_order', JSON.stringify(currentOrder));
+        setPendingOrder(currentOrder);
+      }
+
+      // Step 2: Ensure Razorpay SDK is loaded
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded || typeof window.Razorpay === 'undefined') {
+        throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
+      }
+
+      // Step 1: Call backend create-order endpoint (orders/:id/razorpay-order)
+      const rzpData = await api.createRazorpayOrder(currentOrder.id, token);
+      const rzpOrderId = rzpData?.order_id || rzpData?.razorpayOrderId;
+      const rzpKeyId = rzpData?.key_id || rzpData?.keyId || razorpayConfig?.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID;
+
+      if (!rzpOrderId) {
+        throw new Error(rzpData?.error || 'Failed to initialize Razorpay payment');
+      }
+
+      // Step 2: Open Razorpay modal with order_id
+      const options = {
+        key: rzpKeyId,
+        amount: rzpData.amount, // in paise
+        currency: rzpData.currency || 'INR',
+        name: businessConfig?.name || 'Tea Bhatti Cafe',
+        description: `Order #${currentOrder.pickupCode || 'TB'} Advance Booking`,
+        image: '/teabhatti-logo.png',
+        order_id: rzpOrderId,
+        handler: async function (response) {
+          // On success: receive razorpay_payment_id, razorpay_order_id, razorpay_signature
+          // Step 3: Send all three to verify endpoint
+          setPlacing(true);
+          try {
+            const verifyRes = await api.verifyRazorpayPayment(currentOrder.id, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            }, token);
+
+            if (verifyRes.success) {
+              localStorage.removeItem('cafeos_pending_order');
+              clearCart();
+              firePaymentCelebration();
+              setShowPaymentSuccess(true);
+              toast.success('Payment verified successfully!');
+            } else {
+              throw new Error(verifyRes.error || 'Payment signature verification failed');
+            }
+          } catch (vErr) {
+            console.error('Razorpay verification error:', vErr);
+            setError(vErr.message || 'Payment verification failed');
+            toast.error(vErr.message || 'Payment verification failed');
+          } finally {
+            setPlacing(false);
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          contact: user?.phone || '',
+          email: user?.email || '',
+        },
+        notes: {
+          orderId: currentOrder.id,
+          pickupCode: currentOrder.pickupCode,
+        },
+        theme: {
+          color: '#0d9488',
+        },
+        modal: {
+          ondismiss: function () {
+            setPlacing(false);
+          },
+        },
+      };
+
+      const rzpInstance = new window.Razorpay(options);
+      rzpInstance.on('payment.failed', function (resp) {
+        console.error('Razorpay payment failed:', resp.error);
+        const errMsg = resp.error?.description || 'Payment was unsuccessful or cancelled.';
+        setError(errMsg);
+        toast.error(errMsg);
+      });
+      rzpInstance.open();
+
+    } catch (err) {
+      console.error('Razorpay error:', err);
+      setError(err.message || 'Failed to start Razorpay payment');
+      toast.error(err.message || 'Failed to start Razorpay payment');
+    } finally {
+      setPlacing(false);
     }
   }
 
@@ -612,21 +797,39 @@ export default function Checkout() {
             </div>
 
             {/* Payment Method Selector Tabs */}
-            <div className="flex rounded-2xl bg-bg-base/80 p-1.5 border border-border-subtle gap-1.5">
+            <div className="flex rounded-2xl bg-bg-base/80 p-1.5 border border-border-subtle gap-1.5 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setPaymentTab('razorpay')}
+                className={`flex-1 min-w-[130px] py-2.5 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all ${
+                  paymentTab === 'razorpay'
+                    ? 'bg-primary text-white shadow-sm font-black'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
+                }`}
+              >
+                <Zap className={`w-4 h-4 shrink-0 ${paymentTab === 'razorpay' ? 'text-amber-300 fill-amber-300' : 'text-amber-500'}`} />
+                <span>Instant Pay</span>
+                <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-sans font-bold ${
+                  paymentTab === 'razorpay' ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'
+                }`}>
+                  Auto-Verify
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setPaymentTab('upi_app')}
-                className={`flex-1 py-3 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all ${
                   paymentTab === 'upi_app'
-                    ? 'bg-white text-primary shadow-sm border border-border-subtle'
+                    ? 'bg-white text-primary shadow-sm border border-border-subtle font-black'
                     : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
                 }`}
               >
                 <Smartphone className="w-4 h-4 shrink-0" />
-                <span>Pay with UPI App</span>
+                <span>UPI App</span>
                 {isMobileDevice && (
-                  <span className="hidden sm:inline-block text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-sans font-bold">
-                    Direct
+                  <span className="hidden sm:inline-block text-[9px] bg-primary/10 text-primary px-1.5 py-0.2 rounded-full font-sans font-bold">
+                    Manual UTR
                   </span>
                 )}
               </button>
@@ -639,21 +842,88 @@ export default function Checkout() {
                     loadUpiData(pendingOrder.id);
                   }
                 }}
-                className={`flex-1 py-3 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                className={`flex-1 min-w-[120px] py-2.5 px-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all ${
                   paymentTab === 'qr_code'
-                    ? 'bg-white text-primary shadow-sm border border-border-subtle'
+                    ? 'bg-white text-primary shadow-sm border border-border-subtle font-black'
                     : 'text-text-secondary hover:text-text-primary hover:bg-white/50'
                 }`}
               >
                 <QrCode className="w-4 h-4 shrink-0" />
-                <span>Pay with QR Code</span>
-                {!isMobileDevice && (
-                  <span className="hidden sm:inline-block text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded-full font-sans font-bold">
-                    Desktop
-                  </span>
-                )}
+                <span>QR Code</span>
+                <span className="hidden sm:inline-block text-[9px] bg-secondary/10 text-secondary px-1.5 py-0.2 rounded-full font-sans font-bold">
+                  Manual UTR
+                </span>
               </button>
             </div>
+
+            {/* TAB 0: Razorpay Standard Web Checkout (Instant Auto-Verify) */}
+            {paymentTab === 'razorpay' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="p-4 rounded-2xl bg-emerald-50/90 border border-emerald-200 space-y-3 text-emerald-950">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0 text-emerald-700">
+                      <Zap className="w-5 h-5 fill-emerald-600 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-heading font-bold text-sm text-emerald-900 flex items-center gap-1.5">
+                        Instant Online Auto-Verification
+                        <span className="text-[10px] bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded-full">
+                          Fastest
+                        </span>
+                      </h4>
+                      <p className="text-xs text-emerald-700 mt-0.5">
+                        No manual UTR copy-pasting. Order automatically accepted upon payment!
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white/90 rounded-xl border border-emerald-100 text-xs text-emerald-900 space-y-1.5 font-medium">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Supports <strong>GPay, PhonePe, Paytm, BHIM, Cred, UPI Apps</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>All <strong>Debit / Credit Cards, NetBanking, and Wallets</strong></span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Direct verification via Razorpay Gateway</span>
+                    </div>
+                  </div>
+                </div>
+
+                {razorpayConfig?.key_id?.startsWith('rzp_test_') && (
+                  <div className="p-2.5 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-900 text-xs font-medium flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Razorpay <strong>Test Sandbox Mode Active</strong> — Test without real money deduction.</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handlePayRazorpay}
+                  disabled={placing}
+                  className="btn-primary w-full py-4 text-base font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2 rounded-2xl relative overflow-hidden transition-all hover:scale-[1.01]"
+                >
+                  {placing ? (
+                    <>
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <span>Opening Secure Razorpay Modal...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-5 h-5 fill-current" />
+                      <span>Pay ₹{exactAmountToPay} via Razorpay (Instant Auto-Verify)</span>
+                    </>
+                  )}
+                </button>
+
+                <p className="text-[11px] text-center text-text-secondary">
+                  Secured by Razorpay Payments • 256-bit Bank Grade Encryption
+                </p>
+              </div>
+            )}
 
             {/* TAB 1: Pay with UPI App */}
             {paymentTab === 'upi_app' && (

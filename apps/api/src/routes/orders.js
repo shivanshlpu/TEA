@@ -11,6 +11,13 @@ import { requireBusinessScope } from '../middleware/businessScope.js';
 import { sendWhatsAppNotification, sendWhatsAppTemplate } from '../lib/whatsapp.js';
 import { sendPickupSoonAlert, sendOrderReadyAlert } from '../lib/baileys.js';
 import { createPaymentIntent, processRefund } from '../lib/stripe.js';
+import {
+  createRazorpayOrder,
+  verifyRazorpaySignature,
+  verifyRazorpayWebhookSignature,
+  processRazorpayRefund,
+  getRazorpayKeyId,
+} from '../lib/razorpay.js';
 import { sendPushToBusiness } from '../lib/pushNotifications.js';
 import QRCode from 'qrcode';
 import cache from '../lib/cache.js';
@@ -1089,6 +1096,179 @@ router.patch('/:id/payment/verify',
   }
 );
 
+// ── GET /orders/razorpay/config — Fetch public Razorpay Key ID ──
+router.get('/razorpay/config', optionalAuth, (req, res) => {
+  const keyId = getRazorpayKeyId();
+  res.json({
+    keyId: keyId || null,
+    isAvailable: Boolean(keyId),
+    currency: 'INR',
+  });
+});
+
+// ── POST /orders/:id/razorpay-order — Create Razorpay Order ──
+router.post('/:id/razorpay-order', authenticate, async (req, res) => {
+  try {
+    const order = await req.prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { include: { user: true } } },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    if (req.user.role === 'customer' && order.customer?.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized access to this order' });
+    }
+
+    if (['verified', 'advance_paid', 'paid_online', 'fully_paid'].includes(order.paymentStatus)) {
+      return res.status(400).json({ error: 'Order payment is already verified and confirmed' });
+    }
+
+    const requestedAmount = req.body?.amount ? Number(req.body.amount) : null;
+    const payAmount = (requestedAmount && requestedAmount > 0)
+      ? requestedAmount
+      : (order.advanceAmount && order.advanceAmount > 0 ? order.advanceAmount : Math.round(order.total * 0.20));
+
+    const rzpOrder = await createRazorpayOrder({
+      orderId: order.id,
+      amount: payAmount,
+      pickupCode: order.pickupCode,
+      businessId: order.businessId,
+      notes: {
+        customerName: order.customer?.user?.name || req.user.name,
+        customerPhone: order.customer?.user?.phone || req.user.phone || '',
+      },
+    });
+
+    await req.prisma.order.update({
+      where: { id: order.id },
+      data: { razorpayOrderId: rzpOrder.id },
+    });
+
+    res.json({
+      success: true,
+      razorpayOrderId: rzpOrder.id,
+      amount: rzpOrder.amount, // in paise
+      currency: rzpOrder.currency,
+      keyId: rzpOrder.keyId,
+      orderId: order.id,
+      pickupCode: order.pickupCode,
+      total: order.total,
+    });
+  } catch (err) {
+    console.error('[Razorpay] Order creation error:', err);
+    res.status(500).json({ error: err.message || 'Failed to create Razorpay order' });
+  }
+});
+
+// ── POST /orders/:id/razorpay-verify — Verify Razorpay Payment Signature ──
+router.post('/:id/razorpay-verify', authenticate, async (req, res) => {
+  try {
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body;
+
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+      return res.status(400).json({ error: 'Missing payment signature verification parameters' });
+    }
+
+    const isValid = verifyRazorpaySignature({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    if (!isValid) {
+      console.warn(`[Razorpay] Invalid signature detected for order ${req.params.id}`);
+      return res.status(400).json({ error: 'Payment signature verification failed' });
+    }
+
+    const order = await req.prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        customer: { include: { user: true } },
+        items: { include: { menuItem: true } },
+        business: true,
+      },
+    });
+
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Update order status to verified & advance to accepted
+    const newOrderStatus = order.status === 'received' ? 'accepted' : order.status;
+    const updated = await req.prisma.order.update({
+      where: { id: order.id },
+      data: {
+        paymentStatus: 'verified',
+        paymentUtr: razorpayPaymentId,
+        razorpayPaymentId,
+        razorpayOrderId,
+        stripePaymentIntentId: razorpayPaymentId,
+        status: newOrderStatus,
+        paidAt: new Date(),
+        paymentRejectReason: null,
+      },
+      include: {
+        customer: { include: { user: true } },
+        items: { include: { menuItem: true } },
+        business: true,
+      },
+    });
+
+    await req.prisma.orderStatusLog.create({
+      data: {
+        orderId: updated.id,
+        status: 'payment_verified_razorpay',
+      },
+    });
+
+    invalidateDashboardCache(updated.businessId);
+
+    // Notify customer
+    req.io.to(`order:${updated.id}`).emit('payment-update', {
+      orderId: updated.id,
+      paymentStatus: 'verified',
+      paymentUtr: razorpayPaymentId,
+      status: updated.status,
+      pickupCode: updated.pickupCode,
+      paidAt: updated.paidAt,
+    });
+
+    req.io.to(`order:${updated.id}`).emit('order-status-update', {
+      orderId: updated.id,
+      status: updated.status,
+      paymentStatus: 'verified',
+      pickupCode: updated.pickupCode,
+      updatedAt: new Date(),
+    });
+
+    // Notify owner/dashboard
+    req.io.to(`business:${updated.businessId}`).emit('payment-verified', {
+      orderId: updated.id,
+      pickupCode: updated.pickupCode,
+      total: updated.total,
+      action: 'verify',
+      paymentStatus: 'verified',
+      customerName: updated.customer?.user?.name || 'Customer',
+    });
+
+    sendPushToBusiness(updated.businessId, {
+      title: `✅ Payment Received: #${updated.pickupCode}`,
+      body: `Order #${updated.pickupCode} paid ₹${updated.total} via Razorpay. Order accepted!`,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/favicon.png',
+      tag: `verify-${updated.id}`,
+      data: { url: '/orders', type: 'payment_verified', orderId: updated.id },
+    }, req.prisma).catch(e => console.warn('[Push] Background push error on razorpay verify:', e.message));
+
+    res.json({
+      success: true,
+      message: 'Payment verified successfully via Razorpay',
+      order: updated,
+    });
+  } catch (err) {
+    console.error('[Razorpay] Payment verification error:', err);
+    res.status(500).json({ error: 'Failed to verify Razorpay payment' });
+  }
+});
+
 // ── POST /orders/:id/stripe-intent — Create Stripe Payment Intent for 20% advance ──
 router.post('/:id/stripe-intent', authenticate, async (req, res) => {
   try {
@@ -1504,7 +1684,18 @@ router.post('/:id/refund',
       const refundCode = `REF-TB-${order.id.slice(-6).toUpperCase()}`;
 
       let refundResult = null;
-      if (order.stripePaymentIntentId) {
+      if (order.razorpayPaymentId) {
+        try {
+          refundResult = await processRazorpayRefund({
+            paymentId: order.razorpayPaymentId,
+            amount: reqAmount,
+            notes: { orderId: order.id, refundCode, reason: req.body.reason || 'owner_initiated_refund' },
+          });
+          console.log(`[Razorpay] Refund processed successfully: ${refundResult.id}`);
+        } catch (rErr) {
+          console.warn(`[Razorpay] Refund API warning: ${rErr.message}`);
+        }
+      } else if (order.stripePaymentIntentId) {
         refundResult = await processRefund({
           paymentIntentId: order.stripePaymentIntentId,
           amount: reqAmount,

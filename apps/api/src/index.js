@@ -29,6 +29,7 @@ import notificationRoutes from './routes/notifications.js';
 import uploadRoutes from './routes/upload.js';
 import marketingRoutes from './routes/marketing.js';
 import reportRoutes from './routes/reports.js';
+import razorpayRoutes from './routes/razorpay.js';
 import { initBaileys } from './lib/baileys.js';
 import { startOrderScheduler } from './lib/orderScheduler.js';
 import cache from './lib/cache.js';
@@ -216,6 +217,10 @@ registerRoute('/notifications', notificationRoutes);
 registerRoute('/upload', uploadRoutes);
 registerRoute('/marketing', marketingRoutes);
 registerRoute('/reports', reportRoutes);
+registerRoute('/razorpay', razorpayRoutes);
+// Direct standard endpoints: POST /api/create-order & POST /api/verify-payment
+app.use('/api', razorpayRoutes);
+app.use('/api/v1', razorpayRoutes);
 
 // ── Fast Keep-Alive Ping Endpoints (UptimeRobot, Render Health Check, Pingers) ──
 app.get(['/', '/health', '/api/health', '/ping'], (_req, res) => {
