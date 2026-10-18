@@ -802,6 +802,108 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
   }
 });
 
+// ── PATCH /orders/:id/refund-complete — Owner/Staff marks refund as completed ──
+router.patch('/:id/refund-complete', authenticate, async (req, res) => {
+  try {
+    const isStaff = ['owner', 'manager', 'cashier'].includes(req.user.role);
+    if (!isStaff) {
+      return res.status(403).json({ error: 'Only staff can mark refunds as completed' });
+    }
+
+    const order = await req.prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: { customer: { include: { user: true } }, business: true },
+    });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Validate business match if staff has businessId
+    if (req.user.businessId && order.businessId && req.user.businessId !== order.businessId) {
+      return res.status(403).json({ error: 'Order does not belong to your business' });
+    }
+
+    if (order.refundStatus === 'refunded' || order.refundStatus === 'completed') {
+      return res.status(400).json({
+        error: `Refund is already marked as completed (Reference: ${order.refundCode || 'N/A'}).`,
+      });
+    }
+
+    const refundAmount = Number(req.body.refundAmount) || order.refundAmount || order.total || order.advanceAmount || 0;
+    const refundCode = order.refundCode || `REF-TB-${(order.pickupCode ? order.pickupCode.replace(/^TB-/, '') : order.id.slice(-6)).toUpperCase()}`;
+    const now = new Date();
+
+    const updated = await req.prisma.$transaction(async (tx) => {
+      const ord = await tx.order.update({
+        where: { id: req.params.id },
+        data: {
+          refundStatus: 'refunded',
+          refundAmount,
+          refundedAt: now,
+          paymentStatus: 'refunded',
+          refundCode,
+        },
+      });
+      await tx.orderStatusLog.create({
+        data: {
+          orderId: ord.id,
+          status: `refund_completed_₹${refundAmount}`,
+        },
+      });
+      return ord;
+    });
+
+    // Real-time notification to customer room
+    req.io.to(`order:${updated.id}`).emit('order-status-update', {
+      orderId: updated.id,
+      status: updated.status,
+      cancelledBy: updated.cancelledBy,
+      refundStatus: 'refunded',
+      refundAmount,
+      refundedAt: now,
+      refundCode,
+      message: `Your refund of ₹${refundAmount} has been completed! Reference Code: ${refundCode}.`,
+      timestamp: now,
+    });
+
+    req.io.to(`order:${updated.id}`).emit('payment-update', {
+      orderId: updated.id,
+      paymentStatus: 'refunded',
+      refundStatus: 'refunded',
+      refundAmount,
+      refundedAt: now,
+      status: updated.status,
+    });
+
+    // Real-time notification to business room
+    req.io.to(`business:${updated.businessId}`).emit('order-updated', {
+      orderId: updated.id,
+      status: updated.status,
+      refundStatus: 'refunded',
+      refundAmount,
+      refundedAt: now,
+      refundCode,
+    });
+
+    invalidateDashboardCache(updated.businessId);
+
+    // Send push notification to business if available
+    sendPushToBusiness(updated.businessId, {
+      title: 'Refund Completed ✅',
+      body: `Order #${order.pickupCode || order.id.slice(-4).toUpperCase()} refund of ₹${refundAmount} marked as completed.`,
+      icon: '/icons/icon-192x192.png',
+      tag: `refund-${updated.id}`,
+    }, req.prisma).catch(() => {});
+
+    res.json({
+      success: true,
+      message: `Refund of ₹${refundAmount} marked as completed successfully.`,
+      order: updated,
+    });
+  } catch (err) {
+    console.error('Refund complete error:', err);
+    res.status(500).json({ error: 'Failed to mark refund complete' });
+  }
+});
+
 // ── GET /orders/:id/track — tracking data ──
 router.get('/:id/track', optionalAuth, async (req, res) => {
   try {
@@ -815,6 +917,9 @@ router.get('/:id/track', optionalAuth, async (req, res) => {
         paymentRejectReason: true,
         cancelledBy: true,
         refundCode: true,
+        refundStatus: true,
+        refundAmount: true,
+        refundedAt: true,
         customer: { select: { userId: true } },
         statusLogs: { orderBy: { timestamp: 'asc' } },
         deliveryTracking: { orderBy: { updatedAt: 'desc' }, take: 1 },

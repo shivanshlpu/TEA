@@ -121,6 +121,9 @@ export default function OrderTracking() {
           ...prev,
           ...data,
           cancelledBy: data.cancelledBy || prev.cancelledBy,
+          refundStatus: data.refundStatus || prev.refundStatus,
+          refundAmount: data.refundAmount !== undefined ? data.refundAmount : prev.refundAmount,
+          refundedAt: data.refundedAt || prev.refundedAt,
           paymentRejectReason: data.paymentRejectReason !== undefined ? data.paymentRejectReason : prev.paymentRejectReason,
         } : prev);
         
@@ -149,6 +152,9 @@ export default function OrderTracking() {
         setOrder(prev => prev ? {
           ...prev,
           paymentStatus: data.paymentStatus,
+          refundStatus: data.refundStatus || prev.refundStatus,
+          refundAmount: data.refundAmount !== undefined ? data.refundAmount : prev.refundAmount,
+          refundedAt: data.refundedAt || prev.refundedAt,
           paymentUtr: data.paymentUtr !== undefined ? data.paymentUtr : prev.paymentUtr,
           paymentRejectReason: data.paymentRejectReason !== undefined ? data.paymentRejectReason : prev.paymentRejectReason,
         } : prev);
@@ -668,20 +674,40 @@ export default function OrderTracking() {
             </div>
           </div>
 
-          {/* Prominent 100% Full Refund 1-Hour Guarantee Banner for Admin Cancellations */}
+          {/* Prominent 100% Full Refund Banner for Admin Cancellations */}
           {order.cancelledBy === 'admin' && (
-            <div className="p-4 rounded-2xl bg-emerald-50/90 border-2 border-emerald-300 text-emerald-950 space-y-2 animate-fade-in shadow-xs">
+            <div className={`p-4 rounded-2xl border-2 space-y-2 animate-fade-in shadow-xs ${
+              order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                : 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+            }`}>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                  100% Full Refund Guaranteed
+                  {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                    ? '100% Full Refund Completed'
+                    : '100% Full Refund Guaranteed'}
                 </div>
-                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-200 text-emerald-900 border border-emerald-300 flex items-center gap-1 font-mono">
-                  <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processed within 1 hour
+                <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 font-mono ${
+                  order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                    : 'bg-emerald-200 text-emerald-900 border-emerald-300'
+                }`}>
+                  {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Refund Credited
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processed within 1 hour
+                    </>
+                  )}
                 </span>
               </div>
               <p className="text-xs text-emerald-900 leading-relaxed">
-                Since this order was cancelled by the cafe admin, you are entitled to a <strong>100% full refund of ₹{order.total || order.refundAmount || advanceAmount}.00</strong>. No cancellation fees apply. Your refund has been scheduled and will reach your account within <strong>one hour</strong>.
+                {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                  ? `Your 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00 has been completed and sent to your original payment method.`
+                  : `Since this order was cancelled by the cafe admin, you are entitled to a 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00. No cancellation fees apply. Your refund has been scheduled and will reach your account within one hour.`}
               </p>
             </div>
           )}
@@ -695,7 +721,15 @@ export default function OrderTracking() {
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">Refund Status:</span>
-              <span className="text-emerald-700 font-bold uppercase">{order.refundStatus || 'Processing 100% Refund'}</span>
+              {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
+                <span className="text-emerald-700 font-bold uppercase flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" /> Completed
+                </span>
+              ) : (
+                <span className="text-amber-700 font-bold uppercase flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-600 inline" /> Pending (Processing)
+                </span>
+              )}
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">Refund Amount:</span>
@@ -705,13 +739,21 @@ export default function OrderTracking() {
               </span>
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
-              <span className="text-text-secondary">Expected Refund Time:</span>
-              <span className="text-emerald-800 font-bold">Within 1 Hour</span>
+              <span className="text-text-secondary">
+                {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? 'Refund Processed At:' : 'Expected Refund Time:'}
+              </span>
+              <span className="text-emerald-800 font-bold">
+                {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                  ? (order.refundedAt ? new Date(order.refundedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Completed')
+                  : 'Within 1 Hour'}
+              </span>
             </div>
             <p className="text-[11px] text-text-secondary pt-2 border-t border-border-subtle">
-              {order.cancelledBy === 'admin'
-                ? `The cafe admin has processed your full refund under code ${refundCode}. You can present this reference if you have any questions.`
-                : `This Refund Reference Code (${refundCode}) is specifically provided for you and the Tea Bhatti Cafe owner to track and settle your refund.`}
+              {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                ? `The refund has been completed under reference ${refundCode}. If you have any questions, you can present this reference code to Tea Bhatti Cafe.`
+                : (order.cancelledBy === 'admin'
+                  ? `The cafe admin has scheduled your full refund under code ${refundCode}. You can present this reference if you have any questions.`
+                  : `This Refund Reference Code (${refundCode}) is specifically provided for you and the Tea Bhatti Cafe owner to track and settle your refund.`)}
             </p>
           </div>
         </div>

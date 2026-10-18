@@ -39,7 +39,7 @@ const PICKUP_COLUMNS = [
 
 export default function PickupManagement() {
   const { apiFetch, user } = useAuth();
-  const { toast } = useToast();
+  const { toast, confirm } = useToast();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -215,6 +215,31 @@ export default function PickupManagement() {
       loadPickups();
     } catch (err) {
       toast.error(err.message || 'Failed to send notification');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  // Mark Refund Completed after payment is refunded to customer
+  async function handleMarkRefundComplete(order) {
+    const tokenStr = order.pickupCode || order.id.slice(-4).toUpperCase();
+    const amount = order.refundAmount || order.total || order.advanceAmount || 0;
+    const ok = await confirm({
+      title: `Mark Refund Complete for #${tokenStr}?`,
+      message: `Confirm that ₹${amount} has been refunded to the customer. This will update the customer's tracking screen to show 'Refund Completed'.`,
+      confirmText: 'Mark as Refunded',
+      cancelText: 'Back',
+      isDestructive: false,
+    });
+    if (!ok) return;
+
+    setActionLoading(order.id);
+    try {
+      await apiFetch(`/orders/${order.id}/refund-complete`, { method: 'PATCH' });
+      toast.success(`Refund of ₹${amount} marked as complete for #${tokenStr}!`);
+      loadPickups();
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark refund complete');
     } finally {
       setActionLoading(null);
     }
@@ -728,18 +753,45 @@ export default function PickupManagement() {
 
                 {/* Cancelled State Card with Refund Code */}
                 {isCancelled && (
-                  <div className="mt-3 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs space-y-1.5">
-                    <span className="font-bold text-red-900 block">Order Cancelled</span>
+                  <div className="mt-3 p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-red-900">Order Cancelled</span>
+                      <span className="text-[10px] font-semibold text-red-700">
+                        {order.cancelledBy === 'admin' ? 'By Admin' : 'By Customer'}
+                      </span>
+                    </div>
                     <div className="flex justify-between items-center text-text-primary">
-                      <span className="text-text-secondary">Refund Reference Code:</span>
+                      <span className="text-text-secondary">Refund Reference:</span>
                       <span className="font-mono font-bold px-2 py-0.5 rounded bg-red-100 text-red-900 border border-red-300">
                         {order.refundCode || 'REF-TB-' + order.id.slice(-6).toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex justify-between text-text-secondary text-[11px]">
+                    <div className="flex justify-between items-center text-text-secondary text-[11px]">
                       <span>Refund Status:</span>
-                      <span className="font-bold uppercase text-emerald-700">{order.refundStatus || 'Refunded'}</span>
+                      {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
+                        <span className="font-bold uppercase text-emerald-700 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Refund Completed (₹{order.refundAmount || order.total || order.advanceAmount || 0})
+                        </span>
+                      ) : (
+                        <span className="font-bold uppercase text-amber-700 flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                          Pending (₹{order.refundAmount || order.total || order.advanceAmount || 0})
+                        </span>
+                      )}
                     </div>
+                    {order.refundStatus !== 'refunded' && order.refundStatus !== 'completed' && (
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          onClick={() => handleMarkRefundComplete(order)}
+                          disabled={actionLoading === order.id}
+                          className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 font-bold flex items-center gap-1.5 rounded-xl shadow-xs transition-colors"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Mark Refund Complete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 

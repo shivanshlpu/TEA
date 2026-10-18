@@ -114,10 +114,19 @@ export default function MyOrders() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-border-subtle/50 shrink-0">
+              <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-border-subtle/50 shrink-0">
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-badge capitalize ${STATUS_COLORS[order.status] || 'bg-bg-subtle text-text-secondary'}`}>
                   {order.status.replace(/_/g, ' ')}
                 </span>
+                {order.status === 'cancelled' && (
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${
+                    order.refundStatus === 'refunded' || order.refundStatus === 'completed'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300'
+                  }`}>
+                    {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? 'Refunded' : 'Refund Pending'}
+                  </span>
+                )}
                 <ArrowRight className="w-4 h-4 text-text-secondary group-hover:text-primary transition-colors" />
               </div>
             </Link>
