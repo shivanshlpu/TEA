@@ -668,7 +668,7 @@ export default function OrderTracking() {
               </div>
               <p className="text-xs sm:text-sm font-semibold text-red-900 leading-relaxed">
                 {order.cancelledBy === 'admin'
-                  ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+                  ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
                   : 'This order has been cancelled and will not be prepared.'}
               </p>
             </div>
@@ -685,7 +685,7 @@ export default function OrderTracking() {
                 <div className="flex items-center gap-2 text-emerald-900 font-black text-sm">
                   <ShieldCheck className="w-5 h-5 text-emerald-600" />
                   {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                    ? '100% Full Refund Completed'
+                    ? '100% Full Refund Initiated via Razorpay'
                     : '100% Full Refund Guaranteed'}
                 </div>
                 <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 font-mono ${
@@ -695,19 +695,19 @@ export default function OrderTracking() {
                 }`}>
                   {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
                     <>
-                      <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Refund Credited
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" /> Refund Initiated
                     </>
                   ) : (
                     <>
-                      <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processed within 1 hour
+                      <Clock className="w-3.5 h-3.5 text-emerald-700" /> Processing Refund
                     </>
                   )}
                 </span>
               </div>
               <p className="text-xs text-emerald-900 leading-relaxed">
                 {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                  ? `Your 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00 has been completed and sent to your original payment method.`
-                  : `Since this order was cancelled by the cafe admin, you are entitled to a 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00. No cancellation fees apply. Your refund has been scheduled and will reach your account within one hour.`}
+                  ? `Your 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00 has been initiated through Razorpay and will be credited to your original payment method within 5–7 working days (typically within 24–48 hours for UPI).`
+                  : `Since this order was cancelled by the cafe admin, you are entitled to a 100% full refund of ₹${order.total || order.refundAmount || advanceAmount}.00. No cancellation fees apply. Your refund has been initiated and will reach your account within 5–7 working days.`}
               </p>
             </div>
           )}
@@ -723,7 +723,7 @@ export default function OrderTracking() {
               <span className="text-text-secondary">Refund Status:</span>
               {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? (
                 <span className="text-emerald-700 font-bold uppercase flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" /> Completed
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" /> Processed via Razorpay
                 </span>
               ) : (
                 <span className="text-amber-700 font-bold uppercase flex items-center gap-1">
@@ -740,12 +740,12 @@ export default function OrderTracking() {
             </div>
             <div className="flex justify-between font-semibold text-text-primary">
               <span className="text-text-secondary">
-                {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? 'Refund Processed At:' : 'Expected Refund Time:'}
+                {order.refundStatus === 'refunded' || order.refundStatus === 'completed' ? 'Refund Initiated At:' : 'Expected Bank Credit:'}
               </span>
               <span className="text-emerald-800 font-bold">
                 {order.refundStatus === 'refunded' || order.refundStatus === 'completed'
-                  ? (order.refundedAt ? new Date(order.refundedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Completed')
-                  : 'Within 1 Hour'}
+                  ? (order.refundedAt ? new Date(order.refundedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'Initiated')
+                  : '5–7 Working Days (Bank TAT)'}
               </span>
             </div>
             <p className="text-[11px] text-text-secondary pt-2 border-t border-border-subtle">
@@ -1029,10 +1029,13 @@ export default function OrderTracking() {
             </div>
 
             <div className="space-y-3 text-xs text-text-secondary leading-relaxed">
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-1.5">
                 <span className="font-bold block text-emerald-900 text-sm">1. 5-Minute Free Cancellation Window</span>
                 <p className="text-xs text-emerald-800">
-                  Customers can cancel any order directly within the first <strong>5 minutes</strong> of placing it. When cancelled within this grace window, your 20% advance payment is automatically refunded.
+                  Customers can cancel any order directly within the first <strong>5 minutes</strong> of placing it. When cancelled within this grace window, your 20% advance payment is automatically initiated for a refund to your original source account (UPI / Bank) via Razorpay.
+                </p>
+                <p className="text-[11px] text-emerald-900/80 pt-1 border-t border-emerald-200/60 font-medium">
+                  <strong>Banking Timeline:</strong> Refunds are initiated instantly. As per standard RBI banking clearance, funds are credited to your bank account / UPI app within <strong>5–7 working days</strong> (UPI refunds typically reflect within 24–48 hours).
                 </p>
               </div>
 

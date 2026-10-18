@@ -764,7 +764,7 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       cancelledBy,
       refundCode,
       message: cancelledBy === 'admin'
-        ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+        ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
         : undefined,
       timestamp: new Date(),
     });
@@ -1662,7 +1662,7 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
       refundStatus: updated.refundStatus,
       refundAmount: updated.refundAmount,
       message: cancelledBy === 'admin'
-        ? 'Your order has been cancelled by the admin. You will receive a 100% full refund, and your refund will be processed within one hour.'
+        ? 'Your order has been cancelled by the admin. A 100% full refund has been initiated to your original payment method (credited within 5-7 working days as per standard banking clearance).'
         : undefined,
       timestamp: new Date(),
     });
