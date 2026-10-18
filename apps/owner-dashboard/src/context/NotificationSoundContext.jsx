@@ -743,7 +743,6 @@ export function NotificationSoundProvider({ children }) {
 
       // 3. Payment Verified
       socket.on('payment-verified', (data) => {
-        playAlertSound();
         const isVerified = data.action === 'verify';
         const title = isVerified ? 'Payment Verified' : 'Payment Marked Incorrect';
         const msg = isVerified ? `Order #${data.pickupCode} accepted and sent to kitchen.` : `Order #${data.pickupCode} customer asked to re-enter UTR.`;
@@ -782,27 +781,6 @@ export function NotificationSoundProvider({ children }) {
             toast.info(`🔔 Ringtone switched to ${data.soundType.replace('_', ' ')} across devices`);
           }
         }
-      });
-
-      // 5. Follow-up Reminder for Unverified / Unaccepted Orders
-      socket.on('order-unverified-followup', (data) => {
-        playAlertSound();
-        const pCode = data.pickupCode || 'ORD';
-        triggerTopBanner({
-          type: 'order_unverified_followup',
-          title: `Verification Reminder`,
-          pickupCode: pCode,
-          total: data.total,
-          message: `Order #${pCode} (₹${data.total || 0}) is awaiting verification.`,
-          orderId: data.orderId,
-        });
-
-        showNativeNotification(
-          `Verification Reminder: #${pCode}`,
-          `Order #${pCode} (₹${data.total}) awaiting verification.`,
-          `followup-${data.orderId}`,
-          { url: '/orders', orderId: data.orderId }
-        );
       });
     } catch (err) {
       console.warn('Notification socket connection error:', err);

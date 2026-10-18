@@ -23,68 +23,11 @@ export function invalidateDashboardCache(businessId) {
 
 const router = Router();
 
-// ── 10-Second Unverified Order Follow-up Reminder Tracker ──
-const pendingVerificationTimers = new Map();
-
-export function cancelVerificationFollowUp(orderId) {
-  if (pendingVerificationTimers.has(orderId)) {
-    clearTimeout(pendingVerificationTimers.get(orderId));
-    pendingVerificationTimers.delete(orderId);
-    console.log(`[Follow-up] Verification timer cleared for order ${orderId}`);
-  }
-}
+// ── Verification Follow-up Reminder Tracker (Disabled per user request) ──
+export function cancelVerificationFollowUp(orderId) {}
 
 export function scheduleVerificationFollowUp(orderId, businessId, pickupCode, total, io, prisma) {
-  cancelVerificationFollowUp(orderId);
-
-  const timer = setTimeout(async () => {
-    pendingVerificationTimers.delete(orderId);
-    try {
-      const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        include: { customer: { include: { user: true } } },
-      });
-      if (!order) return;
-
-      const isStillPending = (order.status === 'received' || order.status === 'pending');
-      const isPaymentUnverified = (order.paymentStatus === 'unverified' || order.paymentStatus === 'utr_submitted' || order.paymentStatus === 'pending');
-
-      if (isStillPending || isPaymentUnverified) {
-        const pCode = order.pickupCode || orderId.slice(-4).toUpperCase();
-        console.log(`⚠️ [10s Reminder] Order #${pCode} unverified after 10s. Firing follow-up notification!`);
-
-        const payload = {
-          orderId: order.id,
-          pickupCode: pCode,
-          total: order.total,
-          customerName: order.customer?.user?.name || 'Customer',
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          message: `URGENT: Order #${pCode} (₹${order.total}) has been waiting 10 seconds without verification!`,
-        };
-
-        if (io) {
-          io.to(`business:${businessId}`).emit('order-unverified-followup', payload);
-          io.emit('order-unverified-followup', { ...payload, businessId });
-        }
-
-        sendPushToBusiness(businessId, {
-          title: `⚠️ Action Required: Verify Order #${pCode}!`,
-          body: `Order #${pCode} (₹${order.total}) has not been accepted or verified yet! Please check now.`,
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/favicon.png',
-          tag: `followup-${order.id}`,
-          requireInteraction: true,
-          vibrate: [500, 150, 500, 150, 500],
-          data: { url: '/orders', type: 'order_followup', orderId: order.id, pickupCode: pCode },
-        }, prisma).catch(e => console.warn('[Push] Follow-up push error:', e.message));
-      }
-    } catch (err) {
-      console.warn('[Follow-up] Error executing follow-up timer:', err.message);
-    }
-  }, 10000); // 10 seconds
-
-  pendingVerificationTimers.set(orderId, timer);
+  // 10-second repeating reminders disabled so sound only occurs once upon incoming order/payment
 }
 
 // ── Schemas ──
