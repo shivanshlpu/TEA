@@ -112,8 +112,8 @@ export default function PickupManagement() {
     loadPickups(true);
   }, [dateFilterMode, selectedDay]);
 
-  async function loadPickups(showSpinner = true) {
-    if (showSpinner) setLoading(true);
+  async function loadPickups(showSpinner = false) {
+    if (showSpinner && orders.length === 0) setLoading(true);
     try {
       let url = '/orders?limit=250';
       if (dateFilterMode === 'today') {
@@ -137,22 +137,25 @@ export default function PickupManagement() {
       console.error('Failed to load pickups:', err);
       setFetchError(err.message || 'Failed to fetch pickups');
     } finally {
-      if (showSpinner) setLoading(false);
+      setLoading(false);
     }
   }
 
   // Update order status: preparing -> ready -> delivered
   async function updateOrderStatus(orderId, status) {
     setActionLoading(orderId);
+    // Optimistic local update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     try {
       await apiFetch(`/orders/${orderId}/status`, {
         method: 'PATCH',
         body: { status },
       });
       toast.success(`Order marked as ${status.replace(/_/g, ' ')}`);
-      loadPickups();
+      loadPickups(false);
     } catch (err) {
       toast.error(err.message || 'Failed to update order status');
+      loadPickups(false);
     } finally {
       setActionLoading(null);
     }
@@ -161,14 +164,17 @@ export default function PickupManagement() {
   // Collect Remaining 80% Balance at Shop Counter and Mark Order Completed
   async function handleCollectBalance(orderId) {
     setActionLoading(orderId);
+    // Optimistic local update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: 'fully_paid', status: 'delivered' } : o));
     try {
       const res = await apiFetch(`/orders/${orderId}/collect-balance`, {
         method: 'POST',
       });
       toast.success(res.message || 'Balance collected successfully!');
-      loadPickups();
+      loadPickups(false);
     } catch (err) {
       toast.error(err.message || 'Failed to collect balance');
+      loadPickups(false);
     } finally {
       setActionLoading(null);
     }
@@ -190,15 +196,32 @@ export default function PickupManagement() {
   // Owner verifies customer UTR
   async function handleVerifyPayment(orderId, action = 'verify') {
     setActionLoading(orderId);
+    // Optimistic local update
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+      if (action === 'verify') {
+        return {
+          ...o,
+          paymentStatus: 'verified',
+          status: o.status === 'received' ? 'accepted' : o.status,
+        };
+      } else {
+        return {
+          ...o,
+          paymentStatus: 'rejected',
+        };
+      }
+    }));
     try {
       const res = await apiFetch(`/orders/${orderId}/payment/verify`, {
         method: 'PATCH',
         body: { action },
       });
       toast.success(res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'Payment rejected'));
-      loadPickups();
+      loadPickups(false);
     } catch (err) {
       toast.error(err.message || 'Failed to verify payment');
+      loadPickups(false);
     } finally {
       setActionLoading(null);
     }
@@ -207,14 +230,16 @@ export default function PickupManagement() {
   // Send "Ready in 10 minutes" notification to customer
   async function handleNotifyReadySoon(orderId) {
     setActionLoading(orderId);
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, readySoon: true } : o));
     try {
       const res = await apiFetch(`/orders/${orderId}/notify-ready-soon`, {
         method: 'POST',
       });
       toast.success(res.message || '10-minute ready notification sent to customer!');
-      loadPickups();
+      loadPickups(false);
     } catch (err) {
       toast.error(err.message || 'Failed to send notification');
+      loadPickups(false);
     } finally {
       setActionLoading(null);
     }
@@ -234,12 +259,20 @@ export default function PickupManagement() {
     if (!ok) return;
 
     setActionLoading(order.id);
+    // Optimistic local update
+    setOrders(prev => prev.map(o => o.id === order.id ? {
+      ...o,
+      refundStatus: 'refunded',
+      paymentStatus: 'refunded',
+      refundedAt: new Date(),
+    } : o));
     try {
       await apiFetch(`/orders/${order.id}/refund-complete`, { method: 'PATCH' });
       toast.success(`Refund of ₹${amount} marked as complete for #${tokenStr}!`);
-      loadPickups();
+      loadPickups(false);
     } catch (err) {
       toast.error(err.message || 'Failed to mark refund complete');
+      loadPickups(false);
     } finally {
       setActionLoading(null);
     }

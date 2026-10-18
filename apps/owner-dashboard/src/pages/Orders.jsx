@@ -49,6 +49,7 @@ export default function Orders() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [activeQr, setActiveQr] = useState(null);
@@ -97,8 +98,9 @@ export default function Orders() {
     };
   }, [filter, user?.businessId]);
 
-  async function loadOrders(showSpinner = true) {
-    if (showSpinner) setLoading(true);
+  async function loadOrders(showSpinner = false) {
+    // Only show full skeleton screen on initial empty load
+    if (showSpinner && orders.length === 0) setLoading(true);
     try {
       const params = filter !== 'all' ? `status=${filter}&limit=100` : 'limit=100';
       const data = await apiFetch(`/orders?${params}`);
@@ -108,24 +110,40 @@ export default function Orders() {
       console.error('Load orders error:', err);
       setFetchError(err.message || 'Failed to load orders');
     } finally {
-      if (showSpinner) setLoading(false);
+      setLoading(false);
     }
   }
 
   async function updateStatus(orderId, status) {
+    setActionLoading(orderId);
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
     try {
       await apiFetch(`/orders/${orderId}/status`, { method: 'PATCH', body: { status } });
       toast.success(`Order updated to ${status.replace(/_/g, ' ')}`);
-      loadOrders();
-    } catch (err) { toast.error(err.message || 'Failed to update order status'); }
+      loadOrders(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update order status');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   async function collectBalance(orderId) {
+    setActionLoading(orderId);
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, paymentStatus: 'fully_paid', status: 'delivered' } : o));
     try {
       const res = await apiFetch(`/orders/${orderId}/collect-balance`, { method: 'POST' });
       toast.success(res.message || 'Balance collected & order completed!');
-      loadOrders();
-    } catch (err) { toast.error(err.message || 'Failed to collect balance'); }
+      loadOrders(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to collect balance');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   async function showQr(orderId) {
@@ -146,6 +164,25 @@ export default function Orders() {
       });
       if (!ok) return;
     }
+
+    setActionLoading(orderId);
+    // Optimistic update so UI responds instantly in 0ms without full-page reloads
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+      if (action === 'verify') {
+        return {
+          ...o,
+          paymentStatus: 'verified',
+          status: o.status === 'received' ? 'accepted' : o.status,
+        };
+      } else {
+        return {
+          ...o,
+          paymentStatus: 'rejected',
+        };
+      }
+    }));
+
     try {
       const res = await apiFetch(`/orders/${orderId}/payment/verify`, {
         method: 'PATCH',
@@ -154,8 +191,13 @@ export default function Orders() {
       toast.success(
         res.message || (action === 'verify' ? 'Payment verified & order accepted' : 'UTR marked incorrect. Customer prompted to re-enter UTR.')
       );
-      loadOrders();
-    } catch (err) { toast.error(err.message || 'Failed to verify payment'); }
+      loadOrders(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to verify payment');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   async function handleCancelOrder(order) {
@@ -169,12 +211,19 @@ export default function Orders() {
     });
     if (!ok) return;
 
+    setActionLoading(order.id);
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled', refundStatus: 'pending' } : o));
+
     try {
       await apiFetch(`/orders/${order.id}/cancel`, { method: 'PATCH' });
       toast.info(`Order #${tokenStr} cancelled.`);
-      loadOrders();
+      loadOrders(false);
     } catch (err) {
       toast.error(err.message || 'Failed to cancel order');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
     }
   }
 
@@ -190,23 +239,42 @@ export default function Orders() {
     });
     if (!ok) return;
 
+    setActionLoading(order.id);
+    // Optimistic update
+    setOrders(prev => prev.map(o => o.id === order.id ? {
+      ...o,
+      refundStatus: 'refunded',
+      paymentStatus: 'refunded',
+      refundedAt: new Date(),
+    } : o));
+
     try {
       await apiFetch(`/orders/${order.id}/refund-complete`, { method: 'PATCH' });
       toast.success(`Refund of ₹${amount} marked as complete for #${tokenStr}! Customer has been updated.`);
-      loadOrders();
+      loadOrders(false);
     } catch (err) {
       toast.error(err.message || 'Failed to mark refund complete');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
     }
   }
 
   async function notifyReadySoon(orderId) {
+    setActionLoading(orderId);
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, readySoon: true } : o));
     try {
       const res = await apiFetch(`/orders/${orderId}/notify-ready-soon`, {
         method: 'POST',
       });
       toast.success(res.message || '10-minute ready notification sent to customer!');
-      loadOrders();
-    } catch (err) { toast.error(err.message || 'Failed to send notification'); }
+      loadOrders(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to send notification');
+      loadOrders(false);
+    } finally {
+      setActionLoading(null);
+    }
   }
 
   const getNextStatus = (order) => {
@@ -396,13 +464,15 @@ export default function Orders() {
                         </span>
                         <button
                           onClick={() => verifyPayment(order.id, 'verify')}
-                          className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-[11px] px-2.5 py-1 font-bold"
+                          disabled={actionLoading === order.id}
+                          className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-[11px] px-2.5 py-1 font-bold disabled:opacity-50"
                         >
-                          Verify
+                          {actionLoading === order.id ? 'Saving...' : 'Verify'}
                         </button>
                         <button
                           onClick={() => verifyPayment(order.id, 'reject')}
-                          className="btn-outline text-error border-error text-[11px] px-2 py-1 font-bold"
+                          disabled={actionLoading === order.id}
+                          className="btn-outline text-error border-error text-[11px] px-2 py-1 font-bold disabled:opacity-50"
                         >
                           Reject
                         </button>
@@ -433,7 +503,7 @@ export default function Orders() {
                         {order.status === 'preparing' && (
                           <button
                             onClick={() => notifyReadySoon(order.id)}
-                            disabled={order.readySoon}
+                            disabled={order.readySoon || actionLoading === order.id}
                             className={`btn-outline text-xs px-2.5 py-2 font-bold flex items-center gap-1 ${
                               order.readySoon
                                 ? 'bg-amber-100 text-amber-900 border-amber-300'
@@ -449,17 +519,19 @@ export default function Orders() {
                         {getNextStatus(order) && (
                           <button
                             onClick={() => updateStatus(order.id, getNextStatus(order))}
-                            className="btn-primary text-xs px-3.5 py-2 font-bold"
+                            disabled={actionLoading === order.id}
+                            className="btn-primary text-xs px-3.5 py-2 font-bold disabled:opacity-50"
                           >
-                            → {getNextStatus(order) === 'delivered' ? 'Mark Picked Up (Done)' : getNextStatus(order).replace(/_/g, ' ')}
+                            {actionLoading === order.id ? 'Updating...' : `→ ${getNextStatus(order) === 'delivered' ? 'Mark Picked Up (Done)' : getNextStatus(order).replace(/_/g, ' ')}`}
                           </button>
                         )}
 
                         <button
                           onClick={() => collectBalance(order.id)}
-                          className="btn-primary bg-amber-600 hover:bg-amber-700 text-xs px-3 py-2 font-bold"
+                          disabled={actionLoading === order.id}
+                          className="btn-primary bg-amber-600 hover:bg-amber-700 text-xs px-3 py-2 font-bold disabled:opacity-50"
                         >
-                          Collect ₹{balance} & Finish
+                          {actionLoading === order.id ? 'Collecting...' : `Collect ₹${balance} & Finish`}
                         </button>
                       </>
                     )}
@@ -495,11 +567,12 @@ export default function Orders() {
                             </span>
                             <button
                               onClick={() => handleMarkRefundComplete(order)}
-                              className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1.5 font-bold flex items-center gap-1 rounded-xl shadow-xs transition-colors"
+                              disabled={actionLoading === order.id}
+                              className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1.5 font-bold flex items-center gap-1 rounded-xl shadow-xs transition-colors disabled:opacity-50"
                               title="Click after you have refunded payment to customer"
                             >
                               <CheckCircle2 className="w-3.5 h-3.5" />
-                              Mark Refund Complete
+                              {actionLoading === order.id ? 'Marking...' : 'Mark Refund Complete'}
                             </button>
                           </div>
                         )}
@@ -509,7 +582,8 @@ export default function Orders() {
                     {['received', 'accepted'].includes(order.status) && (
                       <button
                         onClick={() => handleCancelOrder(order)}
-                        className="text-xs text-error hover:underline px-2 py-1 font-semibold"
+                        disabled={actionLoading === order.id}
+                        className="text-xs text-error hover:underline px-2 py-1 font-semibold disabled:opacity-50"
                       >
                         Cancel
                       </button>
