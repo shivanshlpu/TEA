@@ -505,10 +505,10 @@ export default function OrderTracking() {
                 <p className="text-xs font-bold text-rose-900 leading-relaxed">
                   {order.paymentRejectReason && !order.paymentRejectReason.includes('rejected by cafe')
                     ? order.paymentRejectReason
-                    : 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.'}
+                    : 'Payment reference needs verification.'}
                 </p>
                 <p className="text-[11px] text-rose-800">
-                  UTR is incorrect or reference is not correct. Please check the 12-digit UTR / UPI transaction ID in your payment app (Google Pay, PhonePe, Paytm, BHIM) and enter it below. The system will verify your payment immediately.
+                  Please verify the 12-digit UTR or transaction ID in your UPI app and submit it below to confirm your order.
                 </p>
               </div>
             </div>

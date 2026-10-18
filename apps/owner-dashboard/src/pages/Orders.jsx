@@ -25,12 +25,12 @@ import { useToast } from '../context/ToastContext.jsx';
 
 const STATUSES = ['all', 'received', 'accepted', 'preparing', 'ready', 'delivered', 'cancelled'];
 const STATUS_LABELS = {
-  all: 'All Orders',
+  all: 'All',
   received: 'Received',
   accepted: 'Accepted',
-  preparing: 'In Kitchen',
-  ready: 'Ready at Counter',
-  delivered: 'Picked Up / Completed',
+  preparing: 'Kitchen',
+  ready: 'Ready',
+  delivered: 'Completed',
   cancelled: 'Cancelled',
 };
 const STATUS_COLORS = {
@@ -297,81 +297,95 @@ export default function Orders() {
   });
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-heading font-black text-text-primary tracking-tight">
-            All Orders & Historical Records
+          <h1 className="text-xl sm:text-2xl font-heading font-black text-text-primary tracking-tight">
+            Orders & History
           </h1>
-          <p className="text-xs text-text-secondary mt-0.5">
-            Overview of pickups, payments, and financial balances.
+          <p className="text-xs text-text-secondary">
+            Pickups, payments, and balances.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={() => loadOrders(true)}
-          className="btn-outline px-4 py-2 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto"
+          className="btn-outline px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 rounded-xl shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </button>
       </div>
 
-      {/* Live Toast Alert for Incoming Orders */}
+      {/* Live Compact Notification Toast */}
       {toastMessage && (
-        <div className="p-4 rounded-2xl bg-amber-500 text-white font-bold text-xs flex items-center justify-between shadow-lg animate-bounce">
-          <div className="flex items-center gap-2">
-            <Bell className="w-4 h-4 animate-spin" />
-            <span>{toastMessage}</span>
+        <div className="p-2.5 px-3 rounded-xl bg-amber-500/95 text-white font-bold text-xs flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-2 truncate">
+            <Bell className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{toastMessage}</span>
           </div>
-          <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-white/20 rounded-lg">
-            <X className="w-4 h-4" />
+          <button type="button" onClick={() => setToastMessage(null)} className="p-0.5 hover:bg-white/20 rounded">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
       {/* Error Banner with Retry */}
       {fetchError && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between shadow-sm">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-            <span><strong>Failed to load orders:</strong> {fetchError}</span>
+            <span><strong>Failed to load:</strong> {fetchError}</span>
           </div>
           <button 
+            type="button"
             onClick={() => loadOrders(true)}
-            className="btn-primary bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1 font-bold rounded-xl"
+            className="btn-primary bg-red-600 hover:bg-red-700 text-white text-xs px-2.5 py-1 font-bold rounded-lg"
           >
-            Retry Connection
+            Retry
           </button>
         </div>
       )}
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {STATUSES.map(s => (
-            <button
-              key={s}
-              onClick={() => setFilter(s)}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold capitalize transition-all ${
-                filter === s
-                  ? 'bg-primary text-white shadow-md'
-                  : 'bg-white border border-border-subtle text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {STATUS_LABELS[s] || s.replace(/_/g, ' ')}
-            </button>
-          ))}
+      {/* Filter Tabs & Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none no-scrollbar">
+          {STATUSES.map(s => {
+            const count = s === 'all' ? orders.length : orders.filter(o => o.status === s).length;
+            const active = filter === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-all shrink-0 ${
+                  active
+                    ? 'bg-primary text-white shadow-xs font-bold'
+                    : 'bg-white border border-border-subtle text-text-secondary hover:text-text-primary hover:bg-neutral-50'
+                }`}
+              >
+                <span>{STATUS_LABELS[s] || s}</span>
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    active ? 'bg-white/25 text-white' : 'bg-bg-subtle text-text-secondary'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <div className="relative min-w-[260px]">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-text-secondary" />
+        <div className="relative w-full sm:w-64 shrink-0">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-text-secondary" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search Token (e.g. TB-8942) or Phone..."
-            className="input-field text-xs pl-9 pr-4 py-2.5 w-full bg-white font-medium"
+            placeholder="Search Token or Phone..."
+            className="input-field text-xs pl-9 pr-3 py-2 w-full bg-white font-medium rounded-xl"
           />
         </div>
       </div>

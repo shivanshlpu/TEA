@@ -20,33 +20,39 @@ export function ToastProvider({ children }) {
   const confirmResolveRef = useRef(null);
 
   // ── Show Toast Notification ──
-  const showToast = useCallback((message, type = 'info', title = null, duration = 4000) => {
+  const showToast = useCallback((message, type = 'info', title = null, duration = 3500) => {
     if (!message) return;
-    const id = Date.now() + Math.random().toString(36).substring(2, 6);
-    
-    // Auto-detect title if not given
-    const defaultTitle = {
-      success: 'Success',
-      error: 'Error',
-      warning: 'Attention',
-      info: 'Notification',
-    }[type] || 'Notice';
+    const msgStr = typeof message === 'string' ? message : (message.message || JSON.stringify(message));
 
-    const newToast = {
-      id,
-      type,
-      title: title || defaultTitle,
-      message: typeof message === 'string' ? message : (message.message || JSON.stringify(message)),
-      duration,
-    };
+    // Deduplication: do not add duplicate toast if same message is already visible
+    setToasts((prev) => {
+      if (prev.some((t) => t.message === msgStr && t.type === type)) {
+        return prev;
+      }
+      const id = Date.now() + Math.random().toString(36).substring(2, 6);
+      const defaultTitle = {
+        success: 'Success',
+        error: 'Notice',
+        warning: 'Attention',
+        info: 'Update',
+      }[type] || 'Notice';
 
-    setToasts((prev) => [...prev, newToast]);
+      const newToast = {
+        id,
+        type,
+        title: title || defaultTitle,
+        message: msgStr,
+        duration,
+      };
 
-    if (duration > 0) {
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, duration);
-    }
+      if (duration > 0) {
+        setTimeout(() => {
+          setToasts((current) => current.filter((t) => t.id !== id));
+        }, duration);
+      }
+
+      return [...prev, newToast];
+    });
   }, []);
 
   const toast = {
@@ -93,60 +99,56 @@ export function ToastProvider({ children }) {
       {children}
 
       {/* Floating Toast Container (Top-Right / Mobile Top-Center) */}
-      <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-96 z-[9999] pointer-events-none flex flex-col gap-2.5">
+      <div className="fixed top-4 right-4 left-4 sm:left-auto sm:w-80 z-[9999] pointer-events-none flex flex-col gap-2">
         {toasts.map((t) => {
           const config = {
             success: {
-              border: 'border-emerald-500/40',
-              bg: 'bg-emerald-950/95 text-white',
-              badge: 'bg-emerald-500/20 text-emerald-300',
-              icon: <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />,
+              border: 'border-emerald-500/30',
+              bg: 'bg-neutral-900/95 text-white',
+              icon: <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />,
             },
             error: {
-              border: 'border-rose-500/40',
-              bg: 'bg-rose-950/95 text-white',
-              badge: 'bg-rose-500/20 text-rose-300',
-              icon: <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />,
+              border: 'border-rose-500/30',
+              bg: 'bg-neutral-900/95 text-white',
+              icon: <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />,
             },
             warning: {
-              border: 'border-amber-500/40',
-              bg: 'bg-amber-950/95 text-white',
-              badge: 'bg-amber-500/20 text-amber-300',
-              icon: <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />,
+              border: 'border-amber-500/30',
+              bg: 'bg-neutral-900/95 text-white',
+              icon: <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />,
             },
             info: {
-              border: 'border-sky-500/40',
+              border: 'border-neutral-700/60',
               bg: 'bg-neutral-900/95 text-white',
-              badge: 'bg-sky-500/20 text-sky-300',
-              icon: <Info className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />,
+              icon: <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />,
             },
           }[t.type] || {
             border: 'border-neutral-700',
             bg: 'bg-neutral-900/95 text-white',
-            badge: 'bg-neutral-800 text-neutral-300',
-            icon: <Info className="w-5 h-5 text-neutral-400 shrink-0 mt-0.5" />,
+            icon: <Info className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />,
           };
 
           return (
             <div
               key={t.id}
-              className={`pointer-events-auto p-4 rounded-2xl shadow-2xl backdrop-blur-md border ${config.border} ${config.bg} flex items-start gap-3 transition-all duration-300 animate-slide-in`}
-              style={{ animation: 'slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }}
+              className={`pointer-events-auto p-3 px-3.5 rounded-xl shadow-xl backdrop-blur-md border ${config.border} ${config.bg} flex items-start gap-2.5 transition-all duration-300 animate-slide-in`}
+              style={{ animation: 'slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}
             >
               {config.icon}
               <div className="flex-1 min-w-0 pr-1">
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-300">
-                  {t.title}
-                </p>
-                <p className="text-sm font-semibold text-white/95 mt-0.5 leading-snug break-words">
+                {t.title && !['Notice', 'Update', 'Error', 'Success', 'Attention'].includes(t.title) && (
+                  <p className="text-[11px] font-bold text-neutral-300 mb-0.5">{t.title}</p>
+                )}
+                <p className="text-xs font-medium text-white/95 leading-snug break-words">
                   {t.message}
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => removeToast(t.id)}
-                className="p-1 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                className="p-1 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           );

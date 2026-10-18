@@ -1061,7 +1061,7 @@ router.patch('/:id/payment/verify',
       }
 
       const newPaymentStatus = action === 'verify' ? 'verified' : 'rejected';
-      const defaultRejectMsg = 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
+      const defaultRejectMsg = 'UTR or reference is incorrect. Please check your UPI app and re-enter the 12-digit UTR.';
       const rejectReason = action === 'reject'
         ? (reason && !reason.includes('rejected by cafe') ? reason : defaultRejectMsg)
         : null;

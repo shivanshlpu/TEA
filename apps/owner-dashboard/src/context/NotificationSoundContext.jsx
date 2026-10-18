@@ -714,40 +714,39 @@ export function NotificationSoundProvider({ children }) {
       socket.on('new-order', (ord) => {
         playAlertSound();
         const code = ord.pickupCode || (ord.orderId ? ord.orderId.slice(-4).toUpperCase() : 'ORD');
-        const msg = `Order #${code} for ₹${ord.total} received. Prepare fresh!`;
         triggerTopBanner({
           type: 'new_order',
-          title: 'New Order Received! ☕',
+          title: `New Order Received`,
           pickupCode: code,
           total: ord.total,
-          message: msg,
+          message: `₹${ord.total || 0} • ${ord.items?.length || 1} item(s) to prepare`,
           orderId: ord.orderId,
         });
-        showNativeNotification('☕ New Order Received!', msg, 'new-order', { url: '/orders' });
+        showNativeNotification('New Order Received', `Order #${code} (₹${ord.total}) received.`, 'new-order', { url: '/orders' });
       });
 
       // 2. Customer Submitted UTR
       socket.on('payment-submitted', (data) => {
         playAlertSound();
-        const msg = `${data.customerName || 'Customer'} submitted UTR #${data.utr} for ₹${data.total}`;
         triggerTopBanner({
           type: 'utr_submitted',
-          title: 'UTR Payment Submitted! 💰',
+          title: 'Payment Reference Submitted',
           pickupCode: data.pickupCode,
           customerName: data.customerName || 'Customer',
           utr: data.utr,
           total: data.total,
-          message: msg,
+          message: `₹${data.total || 0} • UTR: ${data.utr}`,
           orderId: data.orderId,
         });
-        showNativeNotification('💰 UTR Payment Submitted!', msg, 'utr-submitted', { url: '/orders' });
+        showNativeNotification('Payment Submitted', `Token #${data.pickupCode} (₹${data.total}) submitted UTR.`, 'utr-submitted', { url: '/orders' });
       });
 
       // 3. Payment Verified
       socket.on('payment-verified', (data) => {
         playAlertSound();
-        const title = data.action === 'verify' ? 'Payment Verified! ✅' : 'Payment Rejected ❌';
-        const msg = `Order #${data.pickupCode} payment ${data.action === 'verify' ? 'verified successfully' : 'marked as rejected'}.`;
+        const isVerified = data.action === 'verify';
+        const title = isVerified ? 'Payment Verified' : 'Payment Marked Incorrect';
+        const msg = isVerified ? `Order #${data.pickupCode} accepted and sent to kitchen.` : `Order #${data.pickupCode} customer asked to re-enter UTR.`;
         triggerTopBanner({
           type: 'payment_verified',
           title,
@@ -785,26 +784,22 @@ export function NotificationSoundProvider({ children }) {
         }
       });
 
-      // 5. 10-Second Follow-up Reminder for Unverified / Unaccepted Orders
+      // 5. Follow-up Reminder for Unverified / Unaccepted Orders
       socket.on('order-unverified-followup', (data) => {
-        console.warn('⚠️ [Follow-up Alert] Order unverified after 10 seconds:', data.pickupCode);
-        // Play loud ringtone / alert sound
         playAlertSound();
         const pCode = data.pickupCode || 'ORD';
-        const msg = `⚠️ URGENT: Order #${pCode} (₹${data.total}) has not been verified/accepted after 10s! Please verify to process.`;
-
         triggerTopBanner({
           type: 'order_unverified_followup',
-          title: `⚠️ Action Required: Verify Order #${pCode}!`,
+          title: `Verification Reminder`,
           pickupCode: pCode,
           total: data.total,
-          message: msg,
+          message: `Order #${pCode} (₹${data.total || 0}) is awaiting verification.`,
           orderId: data.orderId,
         });
 
         showNativeNotification(
-          `⚠️ Action Required: Verify Order #${pCode}!`,
-          `Order #${pCode} (₹${data.total}) needs verification before preparation can start!`,
+          `Verification Reminder: #${pCode}`,
+          `Order #${pCode} (₹${data.total}) awaiting verification.`,
           `followup-${data.orderId}`,
           { url: '/orders', orderId: data.orderId }
         );

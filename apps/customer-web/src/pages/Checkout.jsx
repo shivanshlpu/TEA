@@ -141,7 +141,7 @@ export default function Checkout() {
           // UTR was incorrect
           setUtrSuccess(false);
           setUtrSubmitting(false);
-          const msg = data.paymentRejectReason || 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
+          const msg = data.paymentRejectReason || 'Incorrect UTR number. Please check and re-enter your 12-digit reference.';
           setError(msg);
           toast.error(msg);
         }
@@ -161,9 +161,9 @@ export default function Checkout() {
         } else if (data.paymentStatus === 'rejected') {
           setUtrSuccess(false);
           setUtrSubmitting(false);
-          const msg = data.paymentRejectReason || 'UTR is incorrect or reference is not correct. Please check your UPI payment receipt and enter your 12-digit UTR again.';
+          const msg = data.paymentRejectReason || 'Incorrect UTR number. Please check and re-enter your 12-digit reference.';
           setError(msg);
-          toast.error(msg);
+          // Toast already shown by payment-update to prevent duplicates
         }
       }
     });
