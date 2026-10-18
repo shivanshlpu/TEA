@@ -706,7 +706,10 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
     const isStaff = ['owner', 'manager', 'cashier'].includes(req.user.role);
     const cancelledBy = isStaff ? 'admin' : 'customer';
     const refundCode = order.refundCode || `REF-TB-${(order.pickupCode ? order.pickupCode.replace(/^TB-/, '') : order.id.slice(-6)).toUpperCase()}`;
-    const refundAmount = order.total || order.advanceAmount || 0;
+    const hadFullPayment = ['fully_paid', 'paid_online'].includes(order.paymentStatus);
+    const refundAmount = hadFullPayment
+      ? (order.total || order.advanceAmount || 0)
+      : (order.advanceAmount || Math.round(order.total * 0.20));
     const hadPayment = ['verified', 'advance_paid', 'paid_online', 'fully_paid'].includes(order.paymentStatus);
 
     let refundStatus = hadPayment ? 'pending' : 'none';
