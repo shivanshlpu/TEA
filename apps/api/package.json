@@ -14,9 +14,6 @@
     "db:studio": "npx prisma studio",
     "db:reset": "npx prisma migrate reset --force"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
   "dependencies": {
     "@prisma/client": "^6.9.0",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
