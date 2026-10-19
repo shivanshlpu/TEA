@@ -152,7 +152,7 @@ export default function OrderReceiptModal({ order, onClose }) {
               Near Medical College, Shahdol, Madhya Pradesh • 484001
             </p>
             <p className="text-[9px] text-neutral-600">
-              Helpline: +91 90091 49694 • UPI ID: teabhatti@upi
+              Helpline: +91 70007 48920 • UPI ID: teabhatti@upi
             </p>
             <div className="bill-tag mt-1 inline-block px-2.5 py-0.5 text-[8.5px] font-black uppercase tracking-widest bg-neutral-900 text-white rounded">
               Commercial Bill & Kitchen Token

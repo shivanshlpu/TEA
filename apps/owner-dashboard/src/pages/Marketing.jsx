@@ -34,7 +34,7 @@ export default function Marketing() {
   const [message, setMessage] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [audience, setAudience] = useState('test');
-  const [testPhone, setTestPhone] = useState('9009149694');
+  const [testPhone, setTestPhone] = useState('7000748920');
 
   useEffect(() => {
     loadAll();
@@ -277,7 +277,7 @@ export default function Marketing() {
                       type="tel"
                       value={testPhone}
                       onChange={(e) => setTestPhone(e.target.value)}
-                      placeholder="9009149694"
+                      placeholder="7000748920"
                       className="input-field text-xs py-1.5"
                     />
                   </div>

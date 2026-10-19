@@ -876,7 +876,7 @@ export default function Settings() {
                             type="tel"
                             value={pairingPhone.replace(/^\+?91/, '')}
                             onChange={(e) => setPairingPhone(e.target.value)}
-                            placeholder="9009149694"
+                            placeholder="7000748920"
                             maxLength={15}
                             className="input pl-16 w-full font-mono text-sm bg-white"
                           />

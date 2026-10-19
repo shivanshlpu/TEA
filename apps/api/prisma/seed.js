@@ -43,8 +43,8 @@ async function main() {
       packingCharge: 0,
       deliveryCharge: 0,
       upiId: 'teabhatti@upi',
-      phoneNumber: '+919009149694',
-      whatsappNumber: '+919009149694',
+      phoneNumber: '+917000748920',
+      whatsappNumber: '+917000748920',
     },
   });
   console.log(`✅ Business: ${business.name} (${business.id})`);
@@ -53,7 +53,7 @@ async function main() {
   const ownerUser = await prisma.user.create({
     data: {
       businessId: business.id, role: 'owner', name: 'Store Owner',
-      phone: process.env.SEED_OWNER_PHONE || '+919009149694', email: 'owner@cafedream.in', passwordHash: ownerHash,
+      phone: process.env.SEED_OWNER_PHONE || '+917000748920', email: 'owner@cafedream.in', passwordHash: ownerHash,
     },
   });
 

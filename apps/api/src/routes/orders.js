@@ -1338,7 +1338,7 @@ router.get('/:id/receipt', authenticate, async (req, res) => {
       customerPhone: order.customer?.user?.phone || '',
       businessName: order.business?.name || 'Tea Bhatti',
       businessAddress: order.business?.address || 'Near Medical College, Shahdol, MP',
-      businessPhone: order.business?.phoneNumber || '+919009149694',
+      businessPhone: order.business?.phoneNumber || '+917000748920',
       items: order.items.map(item => ({
         name: item.menuItem?.name || 'Item',
         quantity: item.quantity,
