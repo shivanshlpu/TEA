@@ -5,7 +5,7 @@
 
 import * as baileysPkg from '@whiskeysockets/baileys';
 const makeWASocket = baileysPkg.default || baileysPkg.makeWASocket;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = baileysPkg;
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = baileysPkg;
 
 import pino from 'pino';
 import path from 'path';
@@ -47,7 +47,7 @@ export async function initBaileys() {
       auth: state,
       printQRInTerminal: true, // Also prints in terminal for convenience
       logger: pino({ level: 'silent' }), // Clean logs
-      browser: ['Tea Bhatti Cafe', 'Chrome', '124.0.0.0'],
+      browser: Browsers.macOS('Desktop'),
       syncFullHistory: false,
       generateHighQualityLinkPreview: true,
       connectTimeoutMs: 60000,
