@@ -296,6 +296,38 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
+// ── PUT /auth/me — Update authenticated user profile (name, email) ──
+router.put('/me', authenticate, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const updateData = {};
+    if (name !== undefined && name !== null) updateData.name = String(name).trim();
+    if (email !== undefined && email !== null) updateData.email = email ? String(email).trim().toLowerCase() : null;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No update fields provided' });
+    }
+
+    const updatedUser = await req.prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        role: true,
+        businessId: true,
+      },
+    });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile: ' + err.message });
+  }
+});
+
 // ── POST /auth/forgot-password/request-otp ──
 // Customer requests WhatsApp OTP to reset their password.
 // Performs an ultra-fast O(1) indexed query on User table. Strictly rejects non-registered numbers.

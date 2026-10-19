@@ -321,6 +321,7 @@ router.delete(['/notification-sound', '/custom-sound', '/sound'], authenticate, 
 });
 
 const updateSettingsSchema = z.object({
+  ownerName: z.string().nullish(),
   name: z.string().min(1).nullish(),
   industryType: z.string().nullish(),
   address: z.string().nullish(),
@@ -358,7 +359,27 @@ router.get('/',
         business = await req.prisma.business.findFirst();
       }
       if (!business) return res.status(404).json({ error: 'Business not found' });
-      res.json(business);
+
+      // Fetch owner user profile details
+      let ownerUser = null;
+      if (req.user?.id) {
+        ownerUser = await req.prisma.user.findUnique({
+          where: { id: req.user.id },
+          select: { id: true, name: true, phone: true, email: true, role: true },
+        });
+      }
+      if (!ownerUser) {
+        ownerUser = await req.prisma.user.findFirst({
+          where: { businessId: business.id, role: 'owner' },
+          select: { id: true, name: true, phone: true, email: true, role: true },
+        });
+      }
+
+      res.json({
+        ...business,
+        ownerName: ownerUser?.name || '',
+        ownerPhone: ownerUser?.phone || '',
+      });
     } catch (err) {
       console.error('Settings fetch error:', err);
       res.status(500).json({ error: 'Failed to fetch settings' });
@@ -392,6 +413,7 @@ router.put('/',
         isAcceptingOrders,
         closureReason,
         closedDays,
+        ownerName,
       } = req.body;
 
       if (name !== undefined && name !== null) data.name = String(name).trim();
@@ -439,6 +461,25 @@ router.put('/',
         data,
       });
 
+      // Update owner name if requested
+      let updatedOwnerName = null;
+      if (ownerName !== undefined && ownerName !== null) {
+        const trimmedOwnerName = String(ownerName).trim();
+        if (trimmedOwnerName) {
+          if (req.user?.id) {
+            await req.prisma.user.update({
+              where: { id: req.user.id },
+              data: { name: trimmedOwnerName },
+            }).catch(() => {});
+          }
+          await req.prisma.user.updateMany({
+            where: { businessId: business.id, role: 'owner' },
+            data: { name: trimmedOwnerName },
+          }).catch(() => {});
+          updatedOwnerName = trimmedOwnerName;
+        }
+      }
+
       // Invalidate cached default-business & emit socket event
       cache.del('settings:default-business');
       if (req.io) {
@@ -463,7 +504,10 @@ router.put('/',
         }).catch(() => {});
       }
 
-      res.json(updatedBusiness);
+      res.json({
+        ...updatedBusiness,
+        ownerName: updatedOwnerName || ownerName || undefined,
+      });
     } catch (err) {
       console.error('Settings update error:', err);
       res.status(500).json({ error: 'Failed to update settings: ' + err.message });

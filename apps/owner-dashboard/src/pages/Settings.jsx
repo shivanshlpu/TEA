@@ -20,14 +20,15 @@ import {
   Radio,
   Key,
   QrCode,
-  Copy
+  Copy,
+  User
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useNotificationSound } from '../context/NotificationSoundContext.jsx';
 
 export default function Settings() {
-  const { apiFetch } = useAuth();
+  const { user, updateUser, apiFetch } = useAuth();
   const { toast, confirm } = useToast();
   const [form, setForm] = useState({});
   const [loading, setLoading] = useState(true);
@@ -132,7 +133,10 @@ export default function Settings() {
   async function loadSettings() {
     try {
       const data = await apiFetch('/settings');
-      setForm(data);
+      setForm({
+        ...data,
+        ownerName: data?.ownerName || user?.name || '',
+      });
       if (data?.whatsappNumber || data?.phoneNumber) {
         setPairingPhone(prev => prev || data.whatsappNumber || data.phoneNumber);
       }
@@ -149,6 +153,7 @@ export default function Settings() {
     setErrorMsg('');
     try {
       const payload = {
+        ownerName: form.ownerName?.trim() || user?.name || '',
         name: form.name?.trim() || 'Tea Bhatti',
         industryType: form.industryType?.trim() || 'Cafe',
         address: form.address?.trim() || '',
@@ -170,8 +175,18 @@ export default function Settings() {
       };
 
       const updated = await apiFetch('/settings', { method: 'PUT', body: payload });
-      if (updated) setForm(updated);
+      if (updated) {
+        setForm(prev => ({
+          ...prev,
+          ...updated,
+          ownerName: updated.ownerName || payload.ownerName,
+        }));
+        if (payload.ownerName && updateUser) {
+          updateUser({ name: payload.ownerName });
+        }
+      }
       setSaved(true);
+      toast.success('Settings & Owner Profile updated successfully!');
       setTimeout(() => setSaved(false), 3000);
     } catch (err) { 
       setErrorMsg(err.message || 'Failed to update settings');
@@ -398,16 +413,65 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="card p-4 sm:p-6">
-          <h2 className="font-heading font-semibold text-lg mb-4">General Details</h2>
+        {/* ── Owner Profile & Administrator Identity ── */}
+        <div className="card p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-white via-white to-primary/5 shadow-2xs">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold">
+              <User className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-heading font-semibold text-lg text-text-primary">Owner Profile</h2>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Update the owner or administrator name displayed on your dashboard, invoices, and staff overview.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {field('Business Name', 'name')}
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Owner Full Name <span className="text-primary font-bold">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.ownerName ?? ''}
+                onChange={e => setForm({ ...form, ownerName: e.target.value })}
+                placeholder="Enter owner name"
+                className="input-field font-medium text-text-primary"
+                required
+              />
+              <p className="text-[11px] text-text-secondary mt-1">
+                Shown on sidebar profile avatar, order receipts, and admin reports.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-1">
+                Owner Login Phone (Registered ID)
+              </label>
+              <input
+                type="text"
+                value={form.ownerPhone || user?.phone || '+917000748920'}
+                disabled
+                className="input-field bg-bg-subtle/80 cursor-not-allowed font-medium text-text-secondary"
+              />
+              <p className="text-[11px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                <Check className="w-3 h-3 text-emerald-600" /> Active Verified Owner Login ID
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 sm:p-6">
+          <h2 className="font-heading font-semibold text-lg mb-4">Store & Business Details</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {field('Store / Business Name', 'name')}
             {field('Industry Type', 'industryType')}
             <div className="col-span-1 sm:col-span-2">
-              {field('Address', 'address')}
+              {field('Store Address', 'address')}
             </div>
-            {field('Phone', 'phoneNumber')}
-            {field('WhatsApp Contact', 'whatsappNumber')}
+            {field('Public Contact Phone', 'phoneNumber')}
+            {field('WhatsApp Contact Number', 'whatsappNumber')}
           </div>
         </div>
 

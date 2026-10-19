@@ -218,6 +218,15 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const updateUser = useCallback((updatedUserData) => {
+    if (!updatedUserData) return;
+    setUser(prev => {
+      const merged = { ...prev, ...updatedUserData };
+      localStorage.setItem('cafeos_owner_user', JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -226,6 +235,7 @@ export function AuthProvider({ children }) {
       login,
       registerOwner,
       logout,
+      updateUser,
       isAuthenticated: !!token,
       apiFetch,
       refreshSession,

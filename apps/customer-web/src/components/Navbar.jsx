@@ -68,7 +68,7 @@ export default function Navbar() {
     return location.pathname.startsWith(path);
   };
 
-  const displayName = user?.name || 'Shivansh Tiwari';
+  const displayName = user?.name || 'Guest';
   const isHome = location.pathname === '/';
 
   return (
