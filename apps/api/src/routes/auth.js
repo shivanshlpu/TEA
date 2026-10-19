@@ -309,22 +309,38 @@ router.post('/forgot-password/request-otp', authLimiter, async (req, res) => {
     }
 
     // Ultra-fast indexed query with minimal projection (0ms delay)
-    const user = await req.prisma.user.findFirst({
+    let user = await req.prisma.user.findFirst({
       where: {
         OR: [
           { phone: `+91${cleanDigits}` },
           { phone: cleanDigits },
           { phone: `0${cleanDigits}` },
           { phone: `+${cleanDigits}` },
+          { phone: `91${cleanDigits}` },
         ],
-        role: 'customer',
       },
       select: {
         id: true,
         name: true,
         phone: true,
+        role: true,
       },
     });
+
+    // Fallback if phone was saved with formatting (e.g. +91 9009149694)
+    if (!user) {
+      user = await req.prisma.user.findFirst({
+        where: {
+          phone: { endsWith: cleanDigits },
+        },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          role: true,
+        },
+      });
+    }
 
     if (!user) {
       return res.status(404).json({
