@@ -203,7 +203,7 @@ export const api = {
   createStandardOrder: (body) => request('/create-order', { method: 'POST', body }),
   verifyStandardPayment: (body) => request('/verify-payment', { method: 'POST', body }),
   getOrderReceipt: (orderId, token) => request(`/orders/${orderId}/receipt`, { token }),
-  getOrderQr: (orderId) => request(`/orders/${orderId}/qr`),
+  getOrderQr: (orderId, type) => request(`/orders/${orderId}/qr${type ? `?type=${type}` : ''}`),
 
   // Customer Profile
   getProfile: (token) => request('/customers/me', { token }),

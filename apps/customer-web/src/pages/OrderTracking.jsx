@@ -259,7 +259,7 @@ export default function OrderTracking() {
   async function handleOpenBalanceQr() {
     setLoadingQr(true);
     try {
-      const qr = await api.getOrderQr(orderId);
+      const qr = await api.getOrderQr(orderId, 'balance');
       setBalanceQrData(qr);
     } catch (err) {
       toast.error(err.message || 'Failed to load payment QR');
@@ -328,7 +328,7 @@ export default function OrderTracking() {
   const cancelSeconds = cancelSecondsLeft % 60;
   const cancelCountdownStr = `${cancelMinutes}:${cancelSeconds < 10 ? '0' : ''}${cancelSeconds}`;
 
-  const advancePaid = ['advance_paid', 'fully_paid', 'verified'].includes(order.paymentStatus);
+  const advancePaid = ['advance_paid', 'fully_paid', 'verified', 'paid_online', 'utr_submitted'].includes(order.paymentStatus);
   const advanceAmount = order.advanceAmount || Math.round(order.total * 0.20);
   const balanceAmount = order.balanceAmount || Math.round(order.total - advanceAmount);
   const refundCode = order.refundCode || `REF-TB-${order.id.slice(-6).toUpperCase()}`;

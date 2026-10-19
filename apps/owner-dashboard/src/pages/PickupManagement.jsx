@@ -184,7 +184,7 @@ export default function PickupManagement() {
   async function handleShowBalanceQr(orderId) {
     setQrLoading(true);
     try {
-      const qrData = await apiFetch(`/orders/${orderId}/qr`);
+      const qrData = await apiFetch(`/orders/${orderId}/qr?type=balance`);
       setActiveQr(qrData);
     } catch (err) {
       toast.error(err.message || 'Failed to generate QR code');

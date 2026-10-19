@@ -148,7 +148,7 @@ export default function Orders() {
 
   async function showQr(orderId) {
     try {
-      const qrData = await apiFetch(`/orders/${orderId}/qr`);
+      const qrData = await apiFetch(`/orders/${orderId}/qr?type=balance`);
       setActiveQr(qrData);
     } catch (err) { toast.error(err.message || 'Failed to generate QR'); }
   }

@@ -1734,17 +1734,40 @@ router.get('/:id/qr', async (req, res) => {
 
     // Exact amount calculation:
     // If pending advance: exact 20% advance amount (strictly integer)
-    // If advance paid: exact remaining balance amount (strictly integer)
-    let exactAmount = Math.round(order.total);
-    let label = 'Full Payment';
+    // If advance paid / verified: exact remaining balance amount (strictly integer, 80%)
+    const total = Math.round(order.total || 0);
+    const adv = Math.round(order.advanceAmount || Math.round(total * 0.20));
+    const bal = Math.round(
+      order.balanceAmount != null && order.balanceAmount > 0
+        ? order.balanceAmount
+        : Math.max(0, total - adv)
+    );
 
-    if (order.paymentStatus === 'pending') {
-      exactAmount = Math.round(order.advanceAmount || (order.total * 0.20));
-      label = '20% Advance Booking';
-    } else if (order.paymentStatus === 'advance_paid') {
-      const adv = Math.round(order.advanceAmount || (order.total * 0.20));
-      exactAmount = Math.round(order.balanceAmount || (order.total - adv));
+    let exactAmount = bal;
+    let label = 'Remaining Balance at Counter';
+
+    if (req.query.type === 'balance') {
+      exactAmount = order.paymentStatus === 'fully_paid' ? 0 : bal;
       label = 'Remaining Balance at Counter';
+    } else if (req.query.type === 'advance') {
+      exactAmount = adv;
+      label = '20% Advance Booking';
+    } else if (req.query.type === 'full') {
+      exactAmount = total;
+      label = 'Full Payment';
+    } else if (order.paymentStatus === 'fully_paid') {
+      exactAmount = 0;
+      label = 'Order Fully Paid';
+    } else if (order.paymentStatus === 'pending') {
+      exactAmount = adv;
+      label = '20% Advance Booking';
+    } else if (['advance_paid', 'verified', 'paid_online', 'utr_submitted'].includes(order.paymentStatus)) {
+      // 20% advance already paid, QR code is for remaining 80% balance
+      exactAmount = bal;
+      label = 'Remaining Balance at Counter';
+    } else {
+      exactAmount = order.status === 'delivered' ? 0 : bal;
+      label = order.status === 'delivered' ? 'Order Fully Paid' : 'Remaining Balance at Counter';
     }
 
     const note = `Tea Bhatti ${order.pickupCode || order.id.slice(-6)}`;
