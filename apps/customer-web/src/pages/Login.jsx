@@ -155,14 +155,14 @@ export default function Login({ defaultRegister = false }) {
             </div>
           </div>
 
-          {/* Bottom Visual: Handcrafted Note Sticker ("Chai se zyada, Ek Habit hai.") */}
+          {/* Bottom Visual: Handcrafted Note Sticker ("Har Ghoont Me Sukoon, Har Bite Me Swaad.") */}
           <div className="relative z-10 p-7 lg:p-8">
             <div className="bg-[#FAF4E8] text-[#203B2C] p-4 sm:p-5 rounded-2xl shadow-2xl border border-[#E3D3BE] max-w-[270px] transform -rotate-2 hover:rotate-0 transition-transform duration-300">
               <p className="font-heading font-black text-lg leading-tight text-[#203B2C]">
-                Chai se zyada,
+                Har Ghoont Me Sukoon,
               </p>
               <p className="font-heading font-black text-lg leading-tight text-[#E94B18]">
-                Ek Habit hai.
+                Har Bite Me Swaad.
               </p>
               <div className="w-10 h-1 bg-[#E94B18] rounded-full mt-2" />
               <p className="text-[10px] text-[#746A60] mt-2 font-medium">

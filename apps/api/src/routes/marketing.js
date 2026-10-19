@@ -42,7 +42,7 @@ const TEMPLATES = [
     title: 'Swiggy-Style: Post-Visit Thank You',
     message: `☕ *Thank you from Tea Bhatti Cafe!*
 
-We hope you loved your fresh bites today. Chai se zyada, Ek Habit hai! 
+We hope you loved your fresh bites today. Har Ghoont Me Sukoon, Har Bite Me Swaad! 
 
 Next time, skip the waiting line by ordering ahead on our web app for quick 15-min counter pickup. See you again! 🥪✨`,
   },

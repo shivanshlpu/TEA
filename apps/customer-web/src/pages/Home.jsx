@@ -241,8 +241,8 @@ export default function Home() {
 
               {/* Main Headline */}
               <h1 className="text-3xl sm:text-4xl lg:text-[46px] font-heading font-black text-[#203B2C] leading-[1.12] tracking-tight mb-3">
-                Chai se zyada,<br />
-                <span className="text-[#203B2C]">Ek Habit hai.</span>
+                Har Ghoont Me Sukoon,<br />
+                <span className="text-[#E94B18]">Har Bite Me Swaad.</span>
               </h1>
 
               {/* Supporting Line */}

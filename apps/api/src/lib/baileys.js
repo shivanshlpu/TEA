@@ -332,7 +332,7 @@ export async function sendThankYouAlert(phone, order) {
 `🙏 *Thank You for Ordering with Tea Bhatti Cafe!*
 
 We hope you enjoyed order *#${pickupCode}*!
-Chai se zyada, Ek Habit hai. ☕
+Har Ghoont Me Sukoon, Har Bite Me Swaad. ☕
 
 Have feedback? Let us know or order your next hot snack directly at our store!`;
 

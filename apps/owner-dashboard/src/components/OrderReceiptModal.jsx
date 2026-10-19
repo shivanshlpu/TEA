@@ -146,7 +146,7 @@ export default function OrderReceiptModal({ order, onClose }) {
               </h1>
             </div>
             <p className="text-[10px] font-semibold text-neutral-600 italic tracking-wide">
-              "Chai se zyada, Ek Habit hai."
+              "Har Ghoont Me Sukoon, Har Bite Me Swaad."
             </p>
             <p className="text-[9.5px] sm:text-[10px] text-neutral-700 font-medium leading-snug">
               Near Medical College, Shahdol, Madhya Pradesh • 484001
