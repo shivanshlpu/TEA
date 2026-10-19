@@ -53,11 +53,9 @@ export default function ForgotPasswordModal({ isOpen, onClose, initialPhone = ''
       setOtp('');
       setNewPassword('');
       setConfirmPassword('');
-      if (initialPhone) {
-        setPhone(initialPhone.replace(/\D/g, '').slice(-10));
-      }
+      setPhone(''); // Always start with a clean empty input
     }
-  }, [isOpen, initialPhone]);
+  }, [isOpen]);
 
   // Resend OTP countdown timer
   useEffect(() => {
@@ -237,10 +235,12 @@ export default function ForgotPasswordModal({ isOpen, onClose, initialPhone = ''
               <label className="block text-xs font-bold text-[#4A382A]">
                 Registered Mobile Number
               </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#203B2C] select-none flex items-center gap-1">
-                  <span>🇮🇳</span>
-                  <span>+91</span>
+              <div className="relative flex items-center">
+                <div className="absolute left-3.5 text-[#746A60] pointer-events-none">
+                  <Smartphone className="w-4 h-4" />
+                </div>
+                <span className="absolute left-9 text-xs font-bold text-[#4A382A] pointer-events-none border-r border-[#E8DACA] pr-2">
+                  +91
                 </span>
                 <input
                   type="tel"
@@ -248,9 +248,10 @@ export default function ForgotPasswordModal({ isOpen, onClose, initialPhone = ''
                   autoFocus
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="9009149694"
+                  placeholder="Enter 10-digit mobile number"
                   maxLength={10}
-                  className="w-full pl-18 pr-4 py-2.5 rounded-xl border border-[#E8DACA] bg-[#FAF5ED] font-mono text-sm text-[#203B2C] focus:bg-white focus:outline-none focus:border-[#E94B18] transition-all"
+                  autoComplete="off"
+                  className="w-full bg-[#FFFCF7] text-[#203B2C] placeholder-[#746A60]/60 pl-20 pr-3.5 py-3 rounded-xl border border-[#E8DACA] focus:border-[#E94B18] focus:ring-2 focus:ring-[#E94B18]/15 outline-none text-xs sm:text-sm font-medium transition-all"
                 />
               </div>
               <p className="text-[10px] text-[#746A60]">
