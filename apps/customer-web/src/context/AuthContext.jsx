@@ -66,6 +66,18 @@ export function AuthProvider({ children }) {
     return data;
   };
 
+  const setAuthSession = (data) => {
+    if (data?.user && data?.accessToken) {
+      setUser(data.user);
+      setToken(data.accessToken);
+      localStorage.setItem('cafeos_token', data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem('cafeos_refresh', data.refreshToken);
+      }
+      localStorage.setItem('cafeos_user', JSON.stringify(data.user));
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -75,7 +87,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, setAuthSession, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

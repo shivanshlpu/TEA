@@ -114,6 +114,9 @@ export const api = {
   login: (body) => request('/auth/login', { method: 'POST', body }),
   register: (body) => request('/auth/register', { method: 'POST', body }),
   refresh: (body) => request('/auth/refresh', { method: 'POST', body }),
+  requestForgotOtp: (phone) => request('/auth/forgot-password/request-otp', { method: 'POST', body: { phone } }),
+  verifyForgotOtp: (phone, otp) => request('/auth/forgot-password/verify-otp', { method: 'POST', body: { phone, otp } }),
+  resetForgotPassword: (body) => request('/auth/forgot-password/reset', { method: 'POST', body }),
 
   // Business Config (SWR: 0ms Instant Startup from Cache + Background Revalidate)
   getDefaultBusiness: async () => {

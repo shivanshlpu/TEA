@@ -12,6 +12,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import QRCode from 'qrcode';
+import { otpStore } from './otpStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -99,6 +100,37 @@ export async function initBaileys() {
         connectedUser = sock.user;
         const cleanNumber = (connectedUser?.id || '').split(':')[0] || 'Connected';
         console.log(`✅ WhatsApp successfully connected as: +${cleanNumber} (${connectedUser?.name || 'Tea Bhatti Cafe'})`);
+      }
+    });
+
+    // Listen for incoming customer messages (supports replying with 6-digit OTP directly in WhatsApp)
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+      try {
+        if (!messages || !messages[0]) return;
+        const msg = messages[0];
+        if (msg.key?.fromMe) return;
+
+        const senderJid = msg.key?.remoteJid || '';
+        if (!senderJid.endsWith('@s.whatsapp.net')) return;
+
+        const rawSender = senderJid.split('@')[0];
+        const cleanSender = rawSender.replace(/\D/g, '').slice(-10);
+
+        const text = 
+          msg.message?.conversation || 
+          msg.message?.extendedTextMessage?.text || 
+          '';
+
+        if (!text) return;
+
+        // Auto-verify if message is a 6-digit OTP for this user
+        if (otpStore.checkWhatsAppReply(cleanSender, text)) {
+          await sock.sendMessage(senderJid, {
+            text: `✅ *Tea Bhatti Cafe*\n\nYour OTP *${text.trim()}* has been verified successfully!\n\nPlease return to the Tea Bhatti website to set your new password.`,
+          });
+        }
+      } catch (err) {
+        console.warn('Error processing incoming WhatsApp message:', err.message);
       }
     });
 

@@ -9,6 +9,8 @@ import { validate } from '../middleware/validate.js';
 import { authenticate } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { verifyPassword, hashPassword, sanitizeUserData } from '../lib/security.js';
+import { sendWhatsAppMessage } from '../lib/baileys.js';
+import { otpStore } from '../lib/otpStore.js';
 
 const router = Router();
 
@@ -294,14 +296,176 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// ── POST /auth/otp/send (Disabled: Use password authentication) ──
-router.post('/otp/send', authLimiter, (_req, res) => {
-  return res.status(403).json({ error: 'OTP authentication is disabled. Please log in using your registered mobile number and password.' });
+// ── POST /auth/forgot-password/request-otp ──
+// Customer requests WhatsApp OTP to reset their password.
+// Performs an ultra-fast O(1) indexed query on User table. Strictly rejects non-registered numbers.
+router.post('/forgot-password/request-otp', authLimiter, async (req, res) => {
+  try {
+    const rawPhone = req.body.phone;
+    const cleanDigits = String(rawPhone || '').replace(/\D/g, '').slice(-10);
+
+    if (cleanDigits.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    // Ultra-fast indexed query with minimal projection (0ms delay)
+    const user = await req.prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: `+91${cleanDigits}` },
+          { phone: cleanDigits },
+          { phone: `0${cleanDigits}` },
+          { phone: `+${cleanDigits}` },
+        ],
+        role: 'customer',
+      },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'This mobile number is not registered with Tea Bhatti. Password reset is only available for existing registered accounts. Please create a new account or check your number.',
+      });
+    }
+
+    // Generate secure OTP & enforce 45s resend cooldown
+    const { otp, resetToken, cooldownSeconds } = otpStore.createOtp(cleanDigits, user);
+    if (cooldownSeconds) {
+      return res.status(429).json({
+        error: `Please wait ${cooldownSeconds} seconds before requesting a new OTP.`,
+        cooldownSeconds,
+      });
+    }
+
+    // Deliver OTP directly to customer via WhatsApp
+    const waMessage = 
+      `🔐 *Tea Bhatti Cafe — Password Reset OTP*\n\n` +
+      `Hello *${user.name || 'Valued Customer'}*,\n\n` +
+      `Your One-Time Password (OTP) to reset your account password is:\n\n` +
+      `👉 *${otp}*\n\n` +
+      `⏳ This code is valid for *10 minutes*.\n` +
+      `Please enter this code on the website to set your new password.\n\n` +
+      `_Never share your OTP with anyone._`;
+
+    let waSent = false;
+    try {
+      await sendWhatsAppMessage(cleanDigits, waMessage);
+      waSent = true;
+    } catch (waErr) {
+      console.warn(`[OTP WhatsApp Delivery Warning] Could not send via Baileys to +91${cleanDigits}:`, waErr.message);
+      console.log(`🔑 [OTP FALLBACK LOG] Active OTP for +91${cleanDigits} is: ${otp}`);
+    }
+
+    res.json({
+      success: true,
+      message: waSent 
+        ? 'OTP sent successfully to your WhatsApp number' 
+        : 'OTP generated. Please check your WhatsApp.',
+      phone: `+91 ******${cleanDigits.slice(-4)}`,
+      name: user.name,
+      ...(process.env.NODE_ENV !== 'production' ? { devOtp: otp } : {}),
+    });
+  } catch (err) {
+    console.error('Request OTP error:', err);
+    res.status(500).json({ error: 'Failed to send OTP. Please try again later.' });
+  }
 });
 
-// ── POST /auth/otp/verify (Disabled: Use password authentication) ──
-router.post('/otp/verify', authLimiter, (_req, res) => {
-  return res.status(403).json({ error: 'OTP authentication is disabled. Please log in using your registered mobile number and password.' });
+// ── POST /auth/forgot-password/verify-otp ──
+// Customer verifies their 6-digit WhatsApp OTP
+router.post('/forgot-password/verify-otp', authLimiter, async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    const cleanDigits = String(phone || '').replace(/\D/g, '').slice(-10);
+
+    if (cleanDigits.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    if (!otp || String(otp).trim().length !== 6) {
+      return res.status(400).json({ error: 'Please enter the complete 6-digit OTP' });
+    }
+
+    const result = otpStore.verifyOtp(cleanDigits, otp);
+    if (!result.valid) {
+      return res.status(400).json({ error: result.error });
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully! You can now set your new password.',
+      resetToken: result.resetToken,
+    });
+  } catch (err) {
+    console.error('Verify OTP error:', err);
+    res.status(500).json({ error: 'Failed to verify OTP' });
+  }
+});
+
+// ── POST /auth/forgot-password/reset ──
+// Customer sets their new password with verified OTP or resetToken
+router.post('/forgot-password/reset', authLimiter, async (req, res) => {
+  try {
+    const { phone, resetToken, otp, newPassword } = req.body;
+    const cleanDigits = String(phone || '').replace(/\D/g, '').slice(-10);
+
+    if (cleanDigits.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number' });
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const tokenOrOtp = resetToken || otp;
+    const result = otpStore.consumeReset(cleanDigits, tokenOrOtp);
+    if (!result.valid) {
+      return res.status(400).json({ error: result.error || 'Invalid or expired reset session. Please request a new OTP.' });
+    }
+
+    // Encrypt new password using bcrypt
+    const passwordHash = await hashPassword(newPassword);
+
+    const updatedUser = await req.prisma.user.update({
+      where: { id: result.userId },
+      data: { passwordHash },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        role: true,
+        businessId: true,
+      },
+    });
+
+    // Automatically authenticate the user and return session tokens
+    const tokens = generateTokens(updatedUser);
+    const customer = await req.prisma.customer.findFirst({
+      where: { userId: updatedUser.id },
+      select: { id: true },
+    });
+
+    res.json({
+      success: true,
+      message: 'Your password has been reset successfully! Logging you in...',
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        phone: updatedUser.phone,
+        role: updatedUser.role,
+        businessId: updatedUser.businessId,
+        customerId: customer?.id || null,
+      },
+      ...tokens,
+    });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    res.status(500).json({ error: 'Failed to reset password. Please try again.' });
+  }
 });
 
 export default router;

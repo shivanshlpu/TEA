@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext.jsx';
+import ForgotPasswordModal from '../components/ForgotPasswordModal.jsx';
 
 export default function Login({ defaultRegister = false }) {
   const [searchParams] = useSearchParams();
@@ -447,90 +448,12 @@ export default function Login({ defaultRegister = false }) {
 
       </div>
 
-      {/* ── FORGOT PASSWORD MODAL ── */}
-      <AnimatePresence>
-        {showForgotModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="bg-[#FFFDF9] w-full max-w-md rounded-2xl shadow-2xl border border-[#E8DACA] p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-[#E8DACA]">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#E94B18]/10 text-[#E94B18] flex items-center justify-center">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-heading font-black text-lg text-[#203B2C]">Password Recovery</h3>
-                    <p className="text-[11px] text-[#746A60]">Tea Bhatti Cafe Assistance</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowForgotModal(false)}
-                  className="p-1 rounded-lg text-[#746A60] hover:bg-black/5 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-3 text-xs text-[#4A382A] leading-relaxed">
-                <p>
-                  For customer security, our store pickup accounts are managed directly with our Shahdol counter.
-                </p>
-                
-                <div className="p-3.5 bg-[#F8F1E5] rounded-xl border border-[#E8DACA] space-y-2">
-                  <div className="flex items-center gap-2 text-[#203B2C] font-bold">
-                    <Store className="w-4 h-4 text-[#E94B18]" />
-                    <span>Tea Bhatti Cafe Counter</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-[11px] text-[#746A60]">
-                    <MapPin className="w-3.5 h-3.5 text-[#E94B18] shrink-0 mt-0.5" />
-                    <span>Medical College Road, In front of New Kishan Hardware, Shahdol (MP)</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[11px] text-[#746A60]">
-                    <Phone className="w-3.5 h-3.5 text-[#E94B18] shrink-0" />
-                    <a href="tel:+917000748920" className="font-bold text-[#E94B18] hover:underline">
-                      +91 70007 48920
-                    </a>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-[#746A60]">
-                  Please call us or send a message on WhatsApp, and we will verify your registered phone number and update your password immediately.
-                </p>
-              </div>
-
-              <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
-                <a
-                  href="https://wa.me/917000748920?text=Hi%20Tea%20Bhatti%2C%20I%20need%20help%20resetting%20my%20password"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-xl text-center font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>WhatsApp (+91 70007 48920)</span>
-                </a>
-                <a
-                  href="tel:+917000748920"
-                  className="bg-[#E94B18] hover:bg-[#D43F10] text-white py-2.5 px-4 rounded-xl text-center font-bold text-xs shadow-xs transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Call Store</span>
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-[#E8DACA] text-xs font-bold text-[#4A382A] hover:bg-[#F8F1E5] transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* ── FORGOT PASSWORD MODAL (WHATSAPP OTP WIZARD) ── */}
+      <ForgotPasswordModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        initialPhone={phone}
+      />
 
       {/* ── TERMS & CONDITIONS MODAL ── */}
       <AnimatePresence>
