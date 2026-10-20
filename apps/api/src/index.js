@@ -178,6 +178,11 @@ app.use(xss());
 
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
+// Google Search Console verification file
+app.get('/google2eca59f8c1f031f6.html', (_req, res) => {
+  res.type('text/html').send('google-site-verification: google2eca59f8c1f031f6.html');
+});
+
 // Attach Prisma, Socket.io, and Cache to request for use in routes
 app.use((req, res, next) => {
   req.prisma = prisma;
