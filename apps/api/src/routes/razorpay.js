@@ -208,7 +208,6 @@ router.post('/verify-payment', async (req, res) => {
             tag: `verify-${existing.id}`,
             data: { url: '/orders', type: 'payment_verified', orderId: existing.id },
           }, req.prisma).catch(() => {});
-        }
       } catch (dbErr) {
         console.warn('[Razorpay API] Note updating DB order:', dbErr.message);
       }
