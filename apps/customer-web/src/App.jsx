@@ -10,6 +10,7 @@ import Navbar from './components/Navbar.jsx';
 import Footer from './components/Footer.jsx';
 import MobileNav from './components/MobileNav.jsx';
 import Home from './pages/Home.jsx';
+import ScrollToTop from './components/ScrollToTop.jsx';
 import { WelcomeToast } from './components/CelebrationEffects.jsx';
 import InstallPrompt from './components/InstallPrompt.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
@@ -47,11 +48,24 @@ export default function App() {
       setWelcomeUser(e.detail || 'Valued Customer');
     };
     window.addEventListener('welcome-user', handler);
+
+    // Preload primary customer destinations in idle time for instantaneous 0ms transitions
+    const preloadRoutes = () => {
+      import('./pages/Menu.jsx');
+      import('./pages/Cart.jsx');
+    };
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      window.requestIdleCallback(preloadRoutes);
+    } else {
+      setTimeout(preloadRoutes, 1500);
+    }
+
     return () => window.removeEventListener('welcome-user', handler);
   }, []);
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <ToastProvider>
           <CartProvider>

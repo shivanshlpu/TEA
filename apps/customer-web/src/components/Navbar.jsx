@@ -44,13 +44,17 @@ export default function Navbar() {
     setUserDropdown(false);
   }, [location.pathname]);
 
-  // Handle scroll detection for background glass effect
+  // Throttled scroll detection with requestAnimationFrame & boolean change guard
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      if (window.scrollY > 15) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const isScrolled = window.scrollY > 20;
+          setScrolled(prev => (prev !== isScrolled ? isScrolled : prev));
+          ticking = false;
+        });
+        ticking = true;
       }
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -76,9 +80,9 @@ export default function Navbar() {
       <nav 
         className={`${
           isHome && !scrolled
-            ? 'absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-white/70 via-white/30 to-transparent backdrop-blur-[2px] border-b border-black/5'
-            : 'sticky top-0 z-40 bg-[#FFFDF9]/95 backdrop-blur-md border-b border-[#EFE5D8]/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]'
-        } transition-all duration-300`}
+            ? 'absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-white/80 via-white/40 to-transparent border-b border-black/5'
+            : 'sticky top-0 z-40 bg-[#FFFDF9]/98 border-b border-[#EFE5D8]/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]'
+        } transition-all duration-200 gpu-layer`}
       >
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-[64px]">

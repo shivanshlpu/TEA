@@ -2,7 +2,7 @@
 // Client-side cart with localStorage persistence.
 // Server-side price validation happens at checkout via /cart/compute.
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext.jsx';
 import api from '../lib/api.js';
 
@@ -67,7 +67,7 @@ export function CartProvider({ children }) {
     }
   }, [items, cartStorageKey, initialized]);
 
-  const addItem = (menuItem, quantity = 1, selectedAddOns = []) => {
+  const addItem = useCallback((menuItem, quantity = 1, selectedAddOns = []) => {
     setItems(prev => {
       // Check if item with same add-ons already exists
       const existingIndex = prev.findIndex(
@@ -92,11 +92,11 @@ export function CartProvider({ children }) {
         addOns: selectedAddOns,
       }];
     });
-  };
+  }, []);
 
-  const updateQuantity = (index, quantity) => {
+  const updateQuantity = useCallback((index, quantity) => {
     if (quantity <= 0) {
-      removeItem(index);
+      setItems(prev => prev.filter((_, i) => i !== index));
       return;
     }
     setItems(prev => {
@@ -104,31 +104,33 @@ export function CartProvider({ children }) {
       updated[index].quantity = quantity;
       return updated;
     });
-  };
+  }, []);
 
-  const removeItem = (index) => {
+  const removeItem = useCallback((index) => {
     setItems(prev => prev.filter((_, i) => i !== index));
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setItems([]);
     localStorage.removeItem(cartStorageKey);
-  };
+  }, [cartStorageKey]);
 
-  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
+  const itemCount = useMemo(() => items.reduce((sum, i) => sum + i.quantity, 0), [items]);
 
-  const subtotal = items.reduce((sum, item) => {
+  const subtotal = useMemo(() => items.reduce((sum, item) => {
     const discountedPrice = item.price * (1 - (item.discountPct || 0) / 100);
     const addOnTotal = item.addOns.reduce((s, a) => s + a.price, 0);
     return sum + (discountedPrice + addOnTotal) * item.quantity;
-  }, 0);
+  }, 0), [items]);
+
+  const contextValue = useMemo(() => ({
+    items, businessId, setBusinessId, businessConfig,
+    addItem, updateQuantity, removeItem, clearCart,
+    itemCount, subtotal,
+  }), [items, businessId, businessConfig, addItem, updateQuantity, removeItem, clearCart, itemCount, subtotal]);
 
   return (
-    <CartContext.Provider value={{
-      items, businessId, setBusinessId, businessConfig,
-      addItem, updateQuantity, removeItem, clearCart,
-      itemCount, subtotal,
-    }}>
+    <CartContext.Provider value={contextValue}>
       {children}
     </CartContext.Provider>
   );

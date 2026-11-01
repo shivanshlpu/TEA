@@ -11,7 +11,7 @@
 //    - Dynamic coupon data fetched from backend (editable from Owner Dashboard)
 // 6. Featured Cafe Specials Carousel preserving user's original poster artworks
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Zap, 
@@ -123,6 +123,87 @@ const PROMO_POSTERS = [
   { id: 7, image: '/assets/poster7.webp', title: 'Signature Vadapav', subtitle: 'Authentic taste with spicy chutneys.', link: '/menu?category=VADA%20PAV' },
 ];
 
+// ── Memoized Promotional Posters Carousel (Prevents whole-page re-rendering every 4.5s) ──
+const PromoPosterCarousel = memo(function PromoPosterCarousel() {
+  const [currentPoster, setCurrentPoster] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentPoster(prev => (prev + 1) % PROMO_POSTERS.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <section className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 mt-14 sm:mt-16">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg sm:text-xl font-heading font-black text-[#203B2C] tracking-tight">
+            Featured Cafe Specials
+          </h2>
+          <p className="text-xs text-[#746A60]">Explore handcrafted bites and seasonal specials</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPoster(prev => (prev - 1 + PROMO_POSTERS.length) % PROMO_POSTERS.length)}
+            className="p-1.5 rounded-full bg-[#F4ECE0] hover:bg-[#EAE0D1] text-[#4A382A] transition-colors"
+            aria-label="Previous poster"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setCurrentPoster(prev => (prev + 1) % PROMO_POSTERS.length)}
+            className="p-1.5 rounded-full bg-[#F4ECE0] hover:bg-[#EAE0D1] text-[#4A382A] transition-colors"
+            aria-label="Next poster"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="relative rounded-2xl overflow-hidden shadow-sm border border-[#E9DFD0] aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/7] bg-[#3A2618]">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPoster}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
+            className="absolute inset-0"
+          >
+            <img
+              src={PROMO_POSTERS[currentPoster].image}
+              alt={PROMO_POSTERS[currentPoster].title}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover object-center"
+              onError={(e) => { e.target.src = '/assets/poster1.png'; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent sm:via-black/35 flex flex-col justify-center px-4 sm:px-8 lg:px-12">
+              <span className="text-[9px] sm:text-xs font-bold text-[#E94B18] uppercase tracking-wider mb-0.5 sm:mb-1">
+                Special Highlight
+              </span>
+              <h3 className="text-base sm:text-2xl lg:text-3xl font-heading font-black text-white leading-tight max-w-[200px] sm:max-w-md">
+                {PROMO_POSTERS[currentPoster].title}
+              </h3>
+              <p className="text-[11px] sm:text-sm text-white/85 mt-0.5 sm:mt-1 max-w-[210px] sm:max-w-md line-clamp-2 leading-snug">
+                {PROMO_POSTERS[currentPoster].subtitle}
+              </p>
+              <Link
+                to={PROMO_POSTERS[currentPoster].link}
+                className="mt-2.5 sm:mt-4 inline-flex items-center gap-1.5 bg-[#E94B18] hover:bg-[#C8451F] text-white text-[11px] sm:text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full w-fit transition-colors shadow-sm"
+              >
+                <span>Explore Now</span>
+                <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              </Link>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+});
+
 export default function Home() {
   const navigate = useNavigate();
   const { addItem } = useCart();
@@ -130,7 +211,6 @@ export default function Home() {
   const [favorites, setFavorites] = useState({});
   const [backendItems, setBackendItems] = useState([]);
   const [addedIds, setAddedIds] = useState({});
-  const [currentPoster, setCurrentPoster] = useState(0);
 
   // Dynamic offer data from owner dashboard
   const [activeOffer, setActiveOffer] = useState({
@@ -141,14 +221,6 @@ export default function Home() {
     discountType: 'percentage',
     value: 10,
   });
-
-  // Auto-play for promotional poster carousel
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentPoster(prev => (prev + 1) % PROMO_POSTERS.length);
-    }, 4500);
-    return () => clearInterval(timer);
-  }, []);
 
   // Fetch live active coupon and menu items in parallel (SWR 0ms instant display)
   useEffect(() => {
@@ -174,13 +246,13 @@ export default function Home() {
     return () => { isMounted = false; };
   }, []);
 
-  const toggleFavorite = (id, e) => {
+  const toggleFavorite = useCallback((id, e) => {
     e.preventDefault();
     e.stopPropagation();
     setFavorites(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  }, []);
 
-  const handleAddToCart = (product, e) => {
+  const handleAddToCart = useCallback((product, e) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -208,7 +280,7 @@ export default function Home() {
     setTimeout(() => {
       setAddedIds(prev => ({ ...prev, [product.id]: false }));
     }, 900);
-  };
+  }, [backendItems, addItem]);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3A2618] selection:bg-[#E94B18]/20">
@@ -370,8 +442,12 @@ export default function Home() {
                   <img
                     src={cat.image}
                     alt={cat.name}
+                    loading="lazy"
+                    decoding="async"
+                    width="64"
+                    height="64"
                     className="w-full h-full object-contain drop-shadow-sm group-hover:scale-105 transition-transform"
-                    onError={(e) => { e.target.src = '/teabhatti-logo.png'; }}
+                    onError={(e) => { e.target.src = '/teabhatti-logo.webp'; }}
                   />
                 </div>
                 <span className={`text-[11px] sm:text-xs font-bold leading-tight ${
@@ -428,7 +504,11 @@ export default function Home() {
                   <img
                     src={item.image}
                     alt={item.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    decoding="async"
+                    width="200"
+                    height="150"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                     onError={(e) => { e.target.src = '/assets/hero-food.jpg'; }}
                   />
                   <button
@@ -534,72 +614,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── SECTION 6: USER'S ORIGINAL PROMOTIONAL POSTERS CAROUSEL ── */}
-      {/* Kept intact so all original posters and promotional artworks are preserved */}
-      <section className="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 mt-14 sm:mt-16">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg sm:text-xl font-heading font-black text-[#203B2C] tracking-tight">
-              Featured Cafe Specials
-            </h2>
-            <p className="text-xs text-[#746A60]">Explore handcrafted bites and seasonal specials</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setCurrentPoster(prev => (prev - 1 + PROMO_POSTERS.length) % PROMO_POSTERS.length)}
-              className="p-1.5 rounded-full bg-[#F4ECE0] hover:bg-[#EAE0D1] text-[#4A382A] transition-colors"
-              aria-label="Previous poster"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPoster(prev => (prev + 1) % PROMO_POSTERS.length)}
-              className="p-1.5 rounded-full bg-[#F4ECE0] hover:bg-[#EAE0D1] text-[#4A382A] transition-colors"
-              aria-label="Next poster"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        <div className="relative rounded-2xl overflow-hidden shadow-sm border border-[#E9DFD0] aspect-[16/9] sm:aspect-[21/9] lg:aspect-[24/7] bg-[#3A2618]">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPoster}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="absolute inset-0"
-            >
-              <img
-                src={PROMO_POSTERS[currentPoster].image}
-                alt={PROMO_POSTERS[currentPoster].title}
-                className="w-full h-full object-cover object-center"
-                onError={(e) => { e.target.src = '/assets/poster1.png'; }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent sm:via-black/35 flex flex-col justify-center px-4 sm:px-8 lg:px-12">
-                <span className="text-[9px] sm:text-xs font-bold text-[#E94B18] uppercase tracking-wider mb-0.5 sm:mb-1">
-                  Special Highlight
-                </span>
-                <h3 className="text-base sm:text-2xl lg:text-3xl font-heading font-black text-white leading-tight max-w-[200px] sm:max-w-md">
-                  {PROMO_POSTERS[currentPoster].title}
-                </h3>
-                <p className="text-[11px] sm:text-sm text-white/85 mt-0.5 sm:mt-1 max-w-[210px] sm:max-w-md line-clamp-2 leading-snug">
-                  {PROMO_POSTERS[currentPoster].subtitle}
-                </p>
-                <Link
-                  to={PROMO_POSTERS[currentPoster].link}
-                  className="mt-2.5 sm:mt-4 inline-flex items-center gap-1.5 bg-[#E94B18] hover:bg-[#C8451F] text-white text-[11px] sm:text-xs font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-full w-fit transition-colors shadow-sm"
-                >
-                  <span>Explore Now</span>
-                  <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </Link>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </section>
+      {/* ── SECTION 6: USER'S ORIGINAL PROMOTIONAL POSTERS CAROUSEL (MEMOIZED) ── */}
+      <PromoPosterCarousel />
 
     </div>
   );

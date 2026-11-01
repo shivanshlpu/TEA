@@ -2,7 +2,7 @@
 // Zomato-inspired: shimmer skeletons, staggered card reveal,
 // lazy image loading, animated toast, spring hover effects.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Minus, ShoppingCart, Check, RefreshCw, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,8 +20,8 @@ function VegDot() {
   );
 }
 
-// ── Menu Item Card ──
-function MenuItemCard({ item, onAdd, index }) {
+// ── Menu Item Card (Memoized with zero-CPU CSS hover transitions) ──
+const MenuItemCard = memo(function MenuItemCard({ item, onAdd }) {
   const [qty, setQty] = useState(1);
   const [showAddOns, setShowAddOns] = useState(false);
   const [selectedAddOns, setSelectedAddOns] = useState([]);
@@ -49,19 +49,15 @@ function MenuItemCard({ item, onAdd, index }) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04, duration: 0.35, ease: 'easeOut' }}
-      whileHover={{ y: -4 }}
-      className="bg-bg-surface rounded-card shadow-card overflow-hidden group"
+    <div
+      className="bg-bg-surface rounded-card shadow-card overflow-hidden group transition-all duration-200 hover:-translate-y-1 hover:shadow-card-hover will-change-transform"
     >
       {/* Image */}
       <div className={`relative h-44 overflow-hidden ${!item.isAvailable ? 'opacity-50 grayscale' : ''}`}>
         <LazyImage
           src={item.imageUrl}
           alt={item.name}
-          className="w-full h-full group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
         />
 
         {/* Badges */}
@@ -213,14 +209,14 @@ function MenuItemCard({ item, onAdd, index }) {
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
 
-// ── Main Menu Page ──
+// ── Main Menu Page (Client-Side Instant 0ms Filter & Search) ──
 export default function Menu() {
   const [searchParams] = useSearchParams();
-  const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [slowLoadWarning, setSlowLoadWarning] = useState(false);
@@ -232,8 +228,14 @@ export default function Menu() {
   const [toast, setToast] = useState('');
   const bId = businessId || searchParams.get('businessId') || '';
 
+  // Synchronize category selection from URL params
+  useEffect(() => {
+    const cat = searchParams.get('category');
+    if (cat !== null) setSelectedCategory(cat);
+  }, [searchParams]);
+
   // Store Availability Check (Emergency Pause, Closed Days, Operating Hours)
-  const storeStatus = React.useMemo(() => {
+  const storeStatus = useMemo(() => {
     if (!businessConfig) return { isOpen: true };
 
     if (businessConfig.isAcceptingOrders === false) {
@@ -281,65 +283,92 @@ export default function Menu() {
     return { isOpen: true };
   }, [businessConfig]);
 
+  // Load catalog ONCE from SWR cache or network (Zero repeat network calls on search/filter)
   useEffect(() => {
-    loadCategories();
-    loadMenu();
-  }, [bId, selectedCategory, sortBy, search]);
+    let isMounted = true;
+    async function loadCatalog() {
+      if (allItems.length === 0) setLoading(true);
+      setFetchError(null);
 
-  useEffect(() => {
-    const cat = searchParams.get('category');
-    if (cat) setSelectedCategory(cat);
-  }, [searchParams]);
+      const timer = setTimeout(() => {
+        if (isMounted && allItems.length === 0) setSlowLoadWarning(true);
+      }, 3500);
 
-  async function loadCategories() {
-    try {
-      const data = await api.getCategories(bId);
-      if (Array.isArray(data)) setCategories(data);
-    } catch (err) {
-      console.warn('Categories load note:', err);
-    }
-  }
+      try {
+        const [catData, menuData] = await Promise.all([
+          api.getCategories(bId).catch(() => []),
+          api.getMenu(bId),
+        ]);
 
-  async function loadMenu() {
-    if (items.length === 0) setLoading(true);
-    setFetchError(null);
+        if (!isMounted) return;
+        if (Array.isArray(catData)) setCategories(catData);
 
-    // Warm-up indicator if backend takes more than 3.5s (Render cold start)
-    const timer = setTimeout(() => {
-      if (items.length === 0) setSlowLoadWarning(true);
-    }, 3500);
+        const menuList = menuData?.items || (Array.isArray(menuData) ? menuData : []);
+        setAllItems(menuList);
 
-    try {
-      let params = '';
-      if (selectedCategory) {
-        params += `&category=${encodeURIComponent(selectedCategory)}`;
+        if (menuData?.businessId && setBusinessId && !businessId) {
+          setBusinessId(menuData.businessId);
+          localStorage.setItem('cafeos_businessId', menuData.businessId);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error('Failed to load menu catalog:', err);
+          setFetchError(err.message || 'Could not load menu items from server');
+        }
+      } finally {
+        clearTimeout(timer);
+        if (isMounted) {
+          setSlowLoadWarning(false);
+          setLoading(false);
+        }
       }
-      if (sortBy) params += `&sortBy=${sortBy}`;
-      if (search) params += `&search=${encodeURIComponent(search)}`;
-
-      const data = await api.getMenu(bId, params);
-      const menuList = data?.items || (Array.isArray(data) ? data : []);
-      setItems(menuList);
-
-      if (data?.businessId && setBusinessId && !businessId) {
-        setBusinessId(data.businessId);
-        localStorage.setItem('cafeos_businessId', data.businessId);
-      }
-    } catch (err) {
-      console.error('Failed to load menu:', err);
-      setFetchError(err.message || 'Could not load menu items from server');
-    } finally {
-      clearTimeout(timer);
-      setSlowLoadWarning(false);
-      setLoading(false);
     }
-  }
 
-  const handleAdd = (item, qty, addOns) => {
+    loadCatalog();
+    return () => { isMounted = false; };
+  }, [bId]);
+
+  // Client-Side Instant 0ms Filter & Sort (Instant responsiveness on typing and clicking)
+  const filteredItems = useMemo(() => {
+    let result = allItems;
+
+    // Filter by Category
+    if (selectedCategory) {
+      const target = selectedCategory.trim().toLowerCase();
+      result = result.filter(item => {
+        const catName = item.category?.name?.toLowerCase() || '';
+        return catName === target || catName.includes(target);
+      });
+    }
+
+    // Filter by Search Keyword
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(item =>
+        item.name.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort
+    if (sortBy === 'price_low') {
+      result = [...result].sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'price_high') {
+      result = [...result].sort((a, b) => b.price - a.price);
+    } else if (sortBy === 'rating') {
+      result = [...result].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === 'name') {
+      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return result;
+  }, [allItems, selectedCategory, search, sortBy]);
+
+  const handleAdd = useCallback((item, qty, addOns) => {
     addItem(item, qty, addOns);
     setToast(`${item.name} added to cart!`);
     setTimeout(() => setToast(''), 2500);
-  };
+  }, [addItem]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -516,12 +545,8 @@ export default function Menu() {
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : items.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-center py-20"
-        >
+      ) : filteredItems.length === 0 ? (
+        <div className="text-center py-20 animate-fade-in">
           <div className="w-16 h-16 rounded-3xl bg-bg-subtle mx-auto mb-4 flex items-center justify-center">
             <Search className="w-8 h-8 text-text-secondary/50" />
           </div>
@@ -531,11 +556,11 @@ export default function Menu() {
           <p className="text-text-secondary text-sm">
             Try adjusting your filters or search terms.
           </p>
-        </motion.div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
-          {items.map((item, i) => (
-            <MenuItemCard key={item.id} item={item} onAdd={handleAdd} index={i} />
+          {filteredItems.map(item => (
+            <MenuItemCard key={item.id} item={item} onAdd={handleAdd} />
           ))}
         </div>
       )}
