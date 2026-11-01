@@ -158,7 +158,7 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
       'bs-2': 'Cheese Peppy Paneer',
       'bs-3': 'Cheese Butter Vadapav',
       'bs-4': 'Veggie Cheese Maggie',
-      'bs-5': '1 Ch. Peppy Paneer Pizza',
+      'bs-5': 'Veggie Cheese Burger',
       'bs-6': 'Veggie Cheese Corn',
     };
 
@@ -187,10 +187,13 @@ router.post('/', authenticate, validate(createOrderSchema), async (req, res) => 
 
       // 3. Fallback to first available item
       if (!menuItem && allMenuItems.length > 0) {
-        menuItem = allMenuItems[0];
+        menuItem = allMenuItems.find(m => m.isAvailable !== false) || allMenuItems[0];
       }
 
       if (!menuItem) return res.status(400).json({ error: `Item not found in menu` });
+      if (menuItem.isAvailable === false) {
+        return res.status(400).json({ error: `${menuItem.name} has been discontinued or is currently unavailable.` });
+      }
 
       const discountedPrice = menuItem.price * (1 - (menuItem.discountPct || 0) / 100);
       let addOnTotal = 0;

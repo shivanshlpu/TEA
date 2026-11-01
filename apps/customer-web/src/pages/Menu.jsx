@@ -297,14 +297,24 @@ export default function Menu() {
       try {
         const [catData, menuData] = await Promise.all([
           api.getCategories(bId).catch(() => []),
-          api.getMenu(bId),
+          api.getMenu(bId, 'availableOnly=true'),
         ]);
 
         if (!isMounted) return;
         if (Array.isArray(catData)) setCategories(catData);
 
-        const menuList = menuData?.items || (Array.isArray(menuData) ? menuData : []);
-        setAllItems(menuList);
+        const rawList = menuData?.items || (Array.isArray(menuData) ? menuData : []);
+        // Only show active, available items (discontinued items strictly excluded from active menu)
+        const activeList = rawList.filter(item => item.isAvailable !== false);
+        setAllItems(activeList);
+
+        if (Array.isArray(catData)) {
+          // Only show categories that have active items (discontinued categories like COMBOS are hidden)
+          const activeCats = catData.filter(cat =>
+            activeList.some(item => item.categoryId === cat.id || item.category?.id === cat.id || item.category?.name?.toLowerCase() === cat.name.toLowerCase())
+          );
+          setCategories(activeCats.length > 0 ? activeCats : catData);
+        }
 
         if (menuData?.businessId && setBusinessId && !businessId) {
           setBusinessId(menuData.businessId);

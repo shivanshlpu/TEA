@@ -81,62 +81,71 @@ async function main() {
     ]
   });
 
-  // ── Categories ──
-  const catBurger = await prisma.category.create({ data: { businessId: business.id, name: 'BURGERRR', sortOrder: 1 } });
-  const catVadaPav = await prisma.category.create({ data: { businessId: business.id, name: 'VADA PAV', sortOrder: 2 } });
-  const catSandwich = await prisma.category.create({ data: { businessId: business.id, name: 'SANDWICH', sortOrder: 3 } });
-  const catMaggie = await prisma.category.create({ data: { businessId: business.id, name: 'MAGGIE', sortOrder: 4 } });
-  const catPizza = await prisma.category.create({ data: { businessId: business.id, name: 'PIZZAAAH', sortOrder: 5 } });
-  const catPasta = await prisma.category.create({ data: { businessId: business.id, name: 'PAAAASTA', sortOrder: 6 } });
-  const catFries = await prisma.category.create({ data: { businessId: business.id, name: 'FRENCH FRIES', sortOrder: 7 } });
-  const catCombos = await prisma.category.create({ data: { businessId: business.id, name: 'COMBOS', sortOrder: 8 } });
+  // ── Categories (Exact Reference Menu Order) ──
+  const catChai = await prisma.category.create({ data: { businessId: business.id, name: 'CHAI & MORE', sortOrder: 1 } });
+  const catBurger = await prisma.category.create({ data: { businessId: business.id, name: 'BURGERRR', sortOrder: 2 } });
+  const catMaggie = await prisma.category.create({ data: { businessId: business.id, name: 'MAGGIE', sortOrder: 3 } });
+  const catPizza = await prisma.category.create({ data: { businessId: business.id, name: 'PIZZAAAH', sortOrder: 4 } });
+  const catSandwich = await prisma.category.create({ data: { businessId: business.id, name: 'SANDWICH', sortOrder: 5 } });
+  const catFries = await prisma.category.create({ data: { businessId: business.id, name: 'FRENCH FRIES', sortOrder: 6 } });
+  const catVadaPav = await prisma.category.create({ data: { businessId: business.id, name: 'VADA PAV', sortOrder: 7 } });
+  const catPasta = await prisma.category.create({ data: { businessId: business.id, name: 'PAAAASTA', sortOrder: 8 } });
 
-  // ── Menu Items ──
+  // ── Menu Items (Exact 38 Reference Menu Items & Pricing) ──
   const menuData = [
+    // Chai & More
+    { categoryId: catChai.id, name: 'Chai', price: 10, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Classic authentic Indian milk chai brewed with aromatic herbs and spices' },
+    { categoryId: catChai.id, name: 'Chai (Big Cup)', price: 20, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Generous large cup of our aromatic signature masala chai' },
+    { categoryId: catChai.id, name: 'Coffee', price: 25, imageUrl: '/uploads/combo_peppy_paneer.png', description: 'Hot brewed rich aromatic coffee with velvety froth' },
+    { categoryId: catChai.id, name: 'Black Coffee', price: 20, imageUrl: '/uploads/combo_tandoori_pizza.png', description: 'Bold and invigorating pure black coffee brewed to perfection' },
+    { categoryId: catChai.id, name: 'Cold Coffee', price: 69, imageUrl: '/uploads/combo_peppy_paneer.png', description: 'Chilled creamy blended coffee topped with chocolate drizzle' },
+
     // Burgers
-    { categoryId: catBurger.id, name: 'Veggie Aloo Patty', price: 49, imageUrl: '/uploads/veggie_aloo_patty.png' },
-    { categoryId: catBurger.id, name: 'Veg. Double Aloo Patty', price: 79, imageUrl: '/uploads/veg_double_aloo_patty.png' },
-    { categoryId: catBurger.id, name: 'Veggie Cheese Burger', price: 69, imageUrl: '/uploads/veggie_cheese_burger.png' },
-    { categoryId: catBurger.id, name: 'Veggie Paneer Cheese', price: 89, imageUrl: '/uploads/veggie_paneer_cheese.jpg' },
-    { categoryId: catBurger.id, name: 'Tandoori Panner Burger', price: 89, imageUrl: '/uploads/veggie_paneer_cheese.png' },
-    { categoryId: catBurger.id, name: 'Veg. Double Patty & Cheese', price: 99, imageUrl: '/uploads/veg_double_patty_cheese.png' },
-    { categoryId: catBurger.id, name: 'Tea Bhatti Sp. King Burger', price: 129, imageUrl: '/uploads/tea_bhatti_sp_king_burger.png' },
-    // Vada Pav
-    { categoryId: catVadaPav.id, name: 'Butter Vadapav', price: 25, imageUrl: '/uploads/butter_vadapav.png' },
-    { categoryId: catVadaPav.id, name: 'Cheese Butter Vadapav', price: 35, imageUrl: '/uploads/cheese_butter_vadapav.png' },
-    { categoryId: catVadaPav.id, name: 'Tandoori Vadapav', price: 35, imageUrl: '/uploads/tandoori_vadapav.png' },
-    // Sandwich
-    { categoryId: catSandwich.id, name: 'Veggie Sandwich', price: 49, imageUrl: '/uploads/veggie_sandwich.png' },
-    { categoryId: catSandwich.id, name: 'Cheese Corn Sandwich', price: 69, imageUrl: '/uploads/cheese_corn_sandwich.png' },
-    { categoryId: catSandwich.id, name: 'Tandoori Paneer Sandwich', price: 79, imageUrl: '/uploads/tandoori_paneer_sandwich.jpg' },
-    { categoryId: catSandwich.id, name: 'Tandoori Paneer 2X Layer', price: 99, imageUrl: '/uploads/tandoori_paneer_2x_layer.jpg' },
-    { categoryId: catSandwich.id, name: 'Tea Bhatti Special', price: 129, imageUrl: '/uploads/tea_bhatti_special.png' },
+    { categoryId: catBurger.id, name: 'Aloo Tikki', price: 49, imageUrl: '/uploads/veggie_aloo_patty.png', description: 'Crispy golden spiced aloo tikki patty in a soft toasted bun' },
+    { categoryId: catBurger.id, name: 'Veggie Aloo Tikki', price: 59, imageUrl: '/uploads/veggie_aloo_patty.png', description: 'Crisp aloo tikki loaded with fresh garden vegetables and creamy mayo' },
+    { categoryId: catBurger.id, name: 'Veggie Cheese Burger', price: 89, imageUrl: '/uploads/veggie_cheese_burger.png', description: 'Crispy vegetable patty layered with melted cheese slice and house sauce' },
+    { categoryId: catBurger.id, name: 'Veggie Paneer Cheese', price: 99, imageUrl: '/uploads/veggie_paneer_cheese.png', description: 'Succulent paneer slab and veg patty with melted cheese and fresh greens' },
+    { categoryId: catBurger.id, name: 'Tandoori Panner Burger', price: 99, imageUrl: '/uploads/veggie_paneer_cheese.png', description: 'Smoky marinated tandoori paneer patty with spicy tandoori mayo' },
+    { categoryId: catBurger.id, name: 'Veg. 2X Patty & Cheese', price: 119, imageUrl: '/uploads/veg_double_patty_cheese.png', description: 'Double crispy patty stacked with double cheese and signature sauce' },
+
     // Maggie
-    { categoryId: catMaggie.id, name: 'Plain Maggie', price: 30, imageUrl: '/uploads/plain_maggie.png' },
-    { categoryId: catMaggie.id, name: 'Veggie Maggie', price: 40, imageUrl: '/uploads/veggie_maggie.png' },
-    { categoryId: catMaggie.id, name: 'Plain Cheese Maggie', price: 50, imageUrl: '/uploads/plain_cheese_maggie.png' },
-    { categoryId: catMaggie.id, name: 'Veggie Cheese Maggie', price: 60, imageUrl: '/uploads/veggie_cheese_maggie.png' },
-    { categoryId: catMaggie.id, name: 'Tandoori Maggie', price: 60, imageUrl: '/uploads/tandoori_maggie.png' },
+    { categoryId: catMaggie.id, name: 'Plain Maggie', price: 49, imageUrl: '/uploads/plain_maggie.png', description: 'Classic comforting hot masala noodles' },
+    { categoryId: catMaggie.id, name: 'Veggie Maggie', price: 59, imageUrl: '/uploads/veggie_maggie.png', description: 'Masala noodles tossed with crunchy onions, peas, and carrots' },
+    { categoryId: catMaggie.id, name: 'Plain Cheese Maggie', price: 59, imageUrl: '/uploads/plain_cheese_maggie.png', description: 'Hot classic Maggie loaded with melted mozzarella & cheddar' },
+    { categoryId: catMaggie.id, name: 'Veggie Cheese Maggie', price: 69, imageUrl: '/uploads/veggie_cheese_maggie.png', description: 'The all-time favourite noodles loaded with veggies and melted cheese' },
+    { categoryId: catMaggie.id, name: 'Tandoori Maggie', price: 69, imageUrl: '/uploads/tandoori_maggie.png', description: 'Spicy noodles infused with smoky tandoori flavors and spices' },
+    { categoryId: catMaggie.id, name: 'Chilli Garlic Maggie', price: 69, imageUrl: '/uploads/veggie_maggie.png', description: 'Zesty noodles tossed with hot roasted garlic and red chilli sauce' },
+
     // Pizza
-    { categoryId: catPizza.id, name: 'Sp. Cheese Bread Pizza', price: 99, imageUrl: '/uploads/sp_cheese_bread_pizza.png' },
-    { categoryId: catPizza.id, name: 'Cheese Onion Capcicum', price: 99, imageUrl: '/uploads/cheese_onion_capcicum.png' },
-    { categoryId: catPizza.id, name: 'Cheese Veg Paradise', price: 139, imageUrl: '/uploads/cheese_veg_paradise.png' },
-    { categoryId: catPizza.id, name: 'Veggie Cheese Corn', price: 139, imageUrl: '/uploads/veggie_cheese_corn.png' },
-    { categoryId: catPizza.id, name: 'Cheese Peppy Paneer', price: 149, imageUrl: '/uploads/cheese_peppy_paneer.png' },
-    { categoryId: catPizza.id, name: 'Tandoori Paneer Pizza', price: 159, imageUrl: '/uploads/tandoori_paneer_pizza.png' },
-    { categoryId: catPizza.id, name: 'Kadhai Paneer Pizza', price: 159, imageUrl: '/uploads/kadhai_paneer_pizza.png' },
+    { categoryId: catPizza.id, name: 'Cheese Onion Capcicum', price: 89, imageUrl: '/uploads/cheese_onion_capcicum.png', description: 'Crisp hand-tossed base with crunchy onions, green capsicum & gooey mozzarella' },
+    { categoryId: catPizza.id, name: 'Cheese Veg Paradise', price: 99, imageUrl: '/uploads/cheese_veg_paradise.png', description: 'Loaded with golden corn, black olives, crisp bell peppers, and melted cheese' },
+    { categoryId: catPizza.id, name: 'Veggie Cheese Corn', price: 129, imageUrl: '/uploads/veggie_cheese_corn.png', description: 'Generous helping of sweet American corn with double cheese on crisp crust' },
+    { categoryId: catPizza.id, name: 'Cheese Peppy Paneer', price: 139, imageUrl: '/uploads/cheese_peppy_paneer.png', description: 'Spiced peppy paneer chunks paired with crisp red and green capsicum' },
+    { categoryId: catPizza.id, name: 'Tandoori Paneer Pizza', price: 149, imageUrl: '/uploads/tandoori_paneer_pizza.png', description: 'Tandoori-marinated cottage cheese cubes on spicy makhani sauce base' },
+
+    // Sandwich
+    { categoryId: catSandwich.id, name: 'Veggie Sandwich', price: 59, imageUrl: '/uploads/veggie_sandwich.png', description: 'Fresh cucumber, tomato, onion and mint chutney in grilled bread' },
+    { categoryId: catSandwich.id, name: 'Only Ch. Corn Sandwich', price: 69, imageUrl: '/uploads/cheese_corn_sandwich.png', description: 'Grilled golden sandwich stuffed with sweet corn and melted cheese' },
+    { categoryId: catSandwich.id, name: 'Veggie Ch. Corn Sandwich', price: 89, imageUrl: '/uploads/cheese_corn_sandwich.png', description: 'Crunchy vegetables, juicy sweet corn, and rich melted cheese grilled crisp' },
+    { categoryId: catSandwich.id, name: 'Tandoori Paneer Sandwich', price: 89, imageUrl: '/uploads/tandoori_paneer_sandwich.jpg', description: 'Smoky grilled paneer slices with tandoori spices and cheese' },
+    { categoryId: catSandwich.id, name: 'Tandoori Paneer 2X Layer', price: 119, imageUrl: '/uploads/tandoori_paneer_2x_layer.jpg', description: 'Double-decker grilled sandwich stacked with two layers of tandoori paneer' },
+    { categoryId: catSandwich.id, name: 'Cheese Brust Sandwich', price: 129, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Overflowing cheese explosion inside golden grilled sandwich bread' },
+
+    // French Fries
+    { categoryId: catFries.id, name: 'Masla French Fries', price: 69, imageUrl: '/uploads/Masala_French_Fries.png', description: 'Crispy golden potato fries dusted with authentic chaat & peri masala' },
+    { categoryId: catFries.id, name: 'Peri Peri French Fries', price: 79, imageUrl: '/uploads/peri_peri_french_fries.png', description: 'Fiery and tangy peri-peri seasoning over hot crispy potato fries' },
+    { categoryId: catFries.id, name: 'Cheese French Fries', price: 89, imageUrl: '/uploads/cheese_french_fries.png', description: 'Golden fries generously smothered in warm melted cheddar cheese sauce' },
+
+    // Vada Pav
+    { categoryId: catVadaPav.id, name: 'Butter Vadapav', price: 29, imageUrl: '/uploads/butter_vadapav.png', description: 'Authentic spiced potato batata vada inside butter-toasted pav with garlic chutney' },
+    { categoryId: catVadaPav.id, name: 'Cheese Butter Vadapav', price: 39, imageUrl: '/uploads/cheese_butter_vadapav.png', description: 'Hot buttery vadapav layered with rich melted cheese and fried green chilli' },
+    { categoryId: catVadaPav.id, name: 'Tandoori Vadapav', price: 39, imageUrl: '/uploads/tandoori_vadapav.png', description: 'Crispy vadapav slathered with smoky tandoori sauce and spicy chutney' },
+
     // Pasta
-    { categoryId: catPasta.id, name: 'Veggie Paasta', price: 50, imageUrl: '/uploads/veggie_paasta.png' },
-    { categoryId: catPasta.id, name: 'Red Sauce Paasta', price: 70, imageUrl: '/uploads/red_sauce_paasta.png' },
-    { categoryId: catPasta.id, name: 'Cheesee Paasta', price: 80, imageUrl: '/uploads/cheesee_paasta.png' },
-    // Fries
-    { categoryId: catFries.id, name: 'Masla French Fries', price: 59, imageUrl: '/uploads/Masala_French_Fries.png' },
-    { categoryId: catFries.id, name: 'Peri Peri French Fries', price: 69, imageUrl: '/uploads/peri_peri_french_fries.png' },
-    { categoryId: catFries.id, name: 'Cheese French Fries', price: 79, imageUrl: '/uploads/cheese_french_fries.png' },
-    // Combos
-    { categoryId: catCombos.id, name: '1 Ch. Peppy Paneer Pizza + 1 Ch. Corn Sandwich + 2 Cold Coffe', price: 299, imageUrl: '/uploads/combo_peppy_paneer.png' },
-    { categoryId: catCombos.id, name: '2 King Burger + 1 Ch. Fries + 2 Oreo Shake', price: 439, imageUrl: '/uploads/combo_king_burger.png' },
-    { categoryId: catCombos.id, name: '1 Tandoori Pizza + 1 Veg Paradise Pizza + 2 Cold Coffe', price: 399, imageUrl: '/uploads/combo_tandoori_pizza.png' },
+    { categoryId: catPasta.id, name: 'Veggie Paasta', price: 59, imageUrl: '/uploads/veggie_paasta.png', description: 'Tender penne pasta tossed with fresh vegetables in seasoned herb olive sauce' },
+    { categoryId: catPasta.id, name: 'Red Sauce Paasta', price: 79, imageUrl: '/uploads/red_sauce_paasta.png', description: 'Tangy and spicy Italian arrabbiata tomato sauce with garden vegetables' },
+    { categoryId: catPasta.id, name: 'Cheesee Paasta', price: 99, imageUrl: '/uploads/cheesee_paasta.png', description: 'Creamy macaroni & cheese pasta loaded with melted cheese and herbs' },
+    { categoryId: catPasta.id, name: 'White Sauce Paasta', price: 129, imageUrl: '/uploads/cheesee_paasta.png', description: 'Rich, velvety Alfredo white sauce pasta with capsicum, sweet corn, and oregano' },
   ];
 
   const createdMenuItems = await Promise.all(menuData.map(item => 
@@ -145,7 +154,7 @@ async function main() {
         businessId: business.id,
         categoryId: item.categoryId,
         name: item.name,
-        description: '100% Veg',
+        description: item.description || '100% Veg',
         price: item.price,
         imageUrl: item.imageUrl,
         isVeg: true,
@@ -162,6 +171,10 @@ async function main() {
   const pizzaItems = createdMenuItems.filter(m => m.categoryId === catPizza.id);
   for (const p of pizzaItems) {
     await prisma.addOn.create({ data: { menuItemId: p.id, name: 'Cheese Burst', price: 30 } });
+  }
+  const friesItems = createdMenuItems.filter(m => m.categoryId === catFries.id);
+  for (const f of friesItems) {
+    await prisma.addOn.create({ data: { menuItemId: f.id, name: 'Cheese Dip', price: 30 } });
   }
 
   // Get specific items for dummy orders

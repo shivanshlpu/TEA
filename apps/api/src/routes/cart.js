@@ -49,7 +49,7 @@ router.post('/compute', validate(computeCartSchema), async (req, res) => {
       'bs-2': 'Cheese Peppy Paneer',
       'bs-3': 'Cheese Butter Vadapav',
       'bs-4': 'Veggie Cheese Maggie',
-      'bs-5': '1 Ch. Peppy Paneer Pizza',
+      'bs-5': 'Veggie Cheese Burger',
       'bs-6': 'Veggie Cheese Corn',
     };
 
@@ -79,10 +79,12 @@ router.post('/compute', validate(computeCartSchema), async (req, res) => {
 
       // 3. Fallback to first available item if still somehow not matched
       if (!menuItem && allMenuItems.length > 0) {
-        menuItem = allMenuItems[0];
+        menuItem = allMenuItems.find(m => m.isAvailable !== false) || allMenuItems[0];
       }
 
-      if (!menuItem) {
+      if (!menuItem || menuItem.isAvailable === false) {
+        continue;
+      }
         return res.status(400).json({ error: `Menu item not found in catalog` });
       }
 

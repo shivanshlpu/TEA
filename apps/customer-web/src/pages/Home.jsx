@@ -4,7 +4,7 @@
 //    - Storefront sketch, TEA BHATTI signage, and food platter natively rendered in background
 //    - Real HTML text, eyebrow, headline, subhead, and orange CTA interactive on top
 // 2. Overlapping Service Benefits Bar (Fast Prep, Store Pickup, 20% Advance, Fresh Quality)
-// 3. Food Category Row (Burger, Vada Pav, Sandwich, Maggie, Pizza, Pasta, French Fries, Combos)
+// 3. Food Category Row (Chai & More, Burger, Maggie, Pizza, Sandwich, French Fries, Vada Pav, Pasta)
 // 4. Best Sellers 6-grid with crisp food photos and dynamic Add to Cart
 // 5. Promotional Offer Banner using exact supplied image `/images/tea-bhatti-offer-bg.png`
 //    - Burger, fries, and kulhad tea natively on left of the background
@@ -32,14 +32,14 @@ import api from '../lib/api.js';
 
 // ── 8 Categories defined in exact reference order ──
 const CATEGORIES = [
+  { id: 'chai-more', name: 'Chai & More', image: '/assets/chai.png', query: 'CHAI & MORE' },
   { id: 'burger', name: 'Burger', image: '/assets/burger.png', query: 'BURGERRR' },
-  { id: 'vada-pav', name: 'Vada Pav', image: '/assets/vada-pav.png', query: 'VADA PAV' },
-  { id: 'sandwich', name: 'Sandwich', image: '/assets/sandwich.png', query: 'SANDWICH' },
   { id: 'maggie', name: 'Maggie', image: '/assets/maggie.png', query: 'MAGGIE' },
   { id: 'pizza', name: 'Pizza', image: '/assets/pizza.png', query: 'PIZZAAAH' },
-  { id: 'pasta', name: 'Pasta', image: '/assets/pasta.png', query: 'PAAAASTA' },
+  { id: 'sandwich', name: 'Sandwich', image: '/assets/sandwich.png', query: 'SANDWICH' },
   { id: 'fries', name: 'French Fries', image: '/assets/fries.png', query: 'FRENCH FRIES' },
-  { id: 'combo', name: 'Combos', image: '/assets/combo.png', query: 'COMBOS' },
+  { id: 'vada-pav', name: 'Vada Pav', image: '/assets/vada-pav.png', query: 'VADA PAV' },
+  { id: 'pasta', name: 'Pasta', image: '/assets/pasta.png', query: 'PAAAASTA' },
 ];
 
 // ── 6 Best Sellers defined in exact reference order & pricing ──
@@ -47,7 +47,7 @@ const BEST_SELLERS = [
   {
     id: '6acd71bc90fc89567f0d0007',
     name: 'Tandoori Paneer Sandwich',
-    price: 79,
+    price: 89,
     rating: 4.8,
     reviews: 320,
     image: '/assets/tandoori-paneer-sandwich.jpg',
@@ -58,7 +58,7 @@ const BEST_SELLERS = [
   {
     id: '6acd71bc90fc89567f0cfffe',
     name: 'Cheese Peppy Paneer',
-    price: 149,
+    price: 139,
     rating: 4.8,
     reviews: 412,
     image: '/assets/cheese-peppy-paneer.jpg',
@@ -69,7 +69,7 @@ const BEST_SELLERS = [
   {
     id: '6acd71bc90fc89567f0d0000',
     name: 'Cheese Butter Vadapav',
-    price: 35,
+    price: 39,
     rating: 4.8,
     reviews: 210,
     image: '/assets/cheese-butter-vadapav.jpg',
@@ -80,7 +80,7 @@ const BEST_SELLERS = [
   {
     id: '6acd71bc90fc89567f0d0001',
     name: 'Veggie Cheese Maggie',
-    price: 60,
+    price: 69,
     rating: 4.8,
     reviews: 180,
     image: '/assets/veggie-cheese-maggie.jpg',
@@ -89,20 +89,20 @@ const BEST_SELLERS = [
     description: 'Comforting cheesy noodles with garden veggies & mild spices',
   },
   {
-    id: '6acd71bc90fc89567f0d0004',
-    name: '1 Ch. Peppy Paneer Pizza + 1 Ch. Corn Sandwich + 2 Cold...',
-    price: 299,
+    id: '6acd71bc90fc89567f0cfff0',
+    name: 'Veggie Cheese Burger',
+    price: 89,
     rating: 4.8,
-    reviews: 95,
-    image: '/assets/combo-pizza-sandwich-cold-drink.jpg',
-    category: 'COMBOS',
+    reviews: 285,
+    image: '/uploads/veggie_cheese_burger.png',
+    category: 'BURGERRR',
     isVeg: true,
-    description: 'Ultimate party combo with pizza, sandwich, and chilled beverages',
+    description: 'Crispy vegetable patty layered with melted cheese slice and house sauce',
   },
   {
     id: '6acd71bc90fc89567f0d0002',
     name: 'Veggie Cheese Corn',
-    price: 139,
+    price: 129,
     rating: 4.8,
     reviews: 145,
     image: '/assets/veggie-cheese-corn.jpg',
@@ -115,7 +115,7 @@ const BEST_SELLERS = [
 // ── User's Original Promotional Posters (Optimized WebP, 93% smaller) ──
 const PROMO_POSTERS = [
   { id: 1, image: '/assets/poster1.webp', title: 'Welcome to Tea Bhatti Cafe', subtitle: 'A premium pure-veg cafe experience in Shahdol.', link: '/menu' },
-  { id: 2, image: '/assets/poster2.webp', title: 'Combo Offer — Save 10%', subtitle: 'Add 4+ items to cart for instant discount.', link: '/menu?category=COMBOS' },
+  { id: 2, image: '/assets/poster2.webp', title: 'Chai & More Specials', subtitle: 'Aromatic kulhad chai, coffee, and specialty drinks.', link: '/menu?category=CHAI%20%26%20MORE' },
   { id: 3, image: '/assets/poster3.webp', title: 'Freshly Baked Pizzas', subtitle: 'Loaded with real mozzarella and fresh herbs.', link: '/menu?category=PIZZAAAH' },
   { id: 4, image: '/assets/poster4.webp', title: 'Crispy Burgers', subtitle: 'Toasted buns, fresh veggies & golden patties.', link: '/menu?category=BURGERRR' },
   { id: 5, image: '/assets/poster5.webp', title: 'Midnight Cravings', subtitle: 'Hot steaming Maggie made fresh.', link: '/menu?category=MAGGIE' },
@@ -227,10 +227,10 @@ export default function Home() {
     let isMounted = true;
 
     // 1. Fetch menu in parallel (0ms instant display from local SWR cache)
-    api.getMenu().then(data => {
+    api.getMenu('', 'availableOnly=true').then(data => {
       if (!isMounted) return;
-      if (Array.isArray(data)) setBackendItems(data);
-      else if (data?.items && Array.isArray(data.items)) setBackendItems(data.items);
+      const list = data?.items || (Array.isArray(data) ? data : []);
+      setBackendItems(list.filter(i => i.isAvailable !== false));
     }).catch(() => {});
 
     // 2. Fetch business & coupon in parallel
