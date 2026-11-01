@@ -30,8 +30,11 @@ const updateMenuItemSchema = createMenuItemSchema.partial();
 
 // ── Helper to invalidate menu caches & notify real-time clients ──
 function invalidateMenuCache(req, businessId) {
-  cache.delPrefix(`menu:${businessId}`);
-  if (req.io) {
+  if (businessId) {
+    cache.delPrefix(`menu:${businessId}`);
+  }
+  cache.delPrefix('menu:');
+  if (req.io && businessId) {
     req.io.to(`business:${businessId}`).emit('menu-updated', { businessId });
   }
 }
@@ -41,14 +44,20 @@ router.get('/', businessFromQuery, async (req, res) => {
   try {
     const { categoryId, isVeg, minPrice, maxPrice, sortBy, search, availableOnly } = req.query;
 
-    // Cache key incorporates all query filter permutations
+    const isOwnerRequest = Boolean(req.headers.authorization || req.query._t);
     const cacheKey = `menu:${req.businessId}:${JSON.stringify(req.query)}`;
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
 
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(cached);
+    if (!isOwnerRequest) {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        return res.json(cached);
+      }
+    } else {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
     }
 
     const where = {
@@ -175,9 +184,14 @@ router.put('/:id',
       const { addOns, ...itemData } = req.body;
 
       // Verify item belongs to this business
-      const existing = await req.prisma.menuItem.findFirst({
+      let existing = await req.prisma.menuItem.findFirst({
         where: { id: req.params.id, businessId: req.businessId },
       });
+      if (!existing) {
+        existing = await req.prisma.menuItem.findUnique({
+          where: { id: req.params.id },
+        });
+      }
       if (!existing) return res.status(404).json({ error: 'Menu item not found' });
 
       // Update item
@@ -219,16 +233,44 @@ router.delete('/:id',
   requireBusinessScope,
   async (req, res) => {
     try {
-      const existing = await req.prisma.menuItem.findFirst({
+      // Find item (by ID or fallback without scoping to catch orphaned items)
+      let existing = await req.prisma.menuItem.findFirst({
         where: { id: req.params.id, businessId: req.businessId },
       });
-      if (!existing) return res.status(404).json({ error: 'Menu item not found' });
+      if (!existing) {
+        existing = await req.prisma.menuItem.findUnique({
+          where: { id: req.params.id },
+        });
+      }
 
-      // Delete add-ons first, then item
-      await req.prisma.addOn.deleteMany({ where: { menuItemId: req.params.id } });
-      await req.prisma.menuItem.delete({ where: { id: req.params.id } });
+      // If it is already not in the database, treat delete as successful (idempotent)
+      if (!existing) {
+        invalidateMenuCache(req, req.businessId);
+        cache.del(`menu-item:${req.params.id}`);
+        return res.json({ message: 'Menu item deleted' });
+      }
+
+      // Check for related order history to avoid violating foreign key constraints
+      const orderCount = await req.prisma.orderItem.count({
+        where: { menuItemId: req.params.id },
+      }).catch(() => 0);
+
+      if (orderCount > 0) {
+        // Discontinue item so customer cannot order, but preserve financial history
+        await req.prisma.menuItem.update({
+          where: { id: req.params.id },
+          data: { isAvailable: false },
+        });
+      } else {
+        // Safe to completely delete item and its add-ons
+        await req.prisma.addOn.deleteMany({ where: { menuItemId: req.params.id } }).catch(() => {});
+        await req.prisma.menuItem.delete({ where: { id: req.params.id } });
+      }
 
       invalidateMenuCache(req, req.businessId);
+      if (existing.businessId && existing.businessId !== req.businessId) {
+        invalidateMenuCache(req, existing.businessId);
+      }
       cache.del(`menu-item:${req.params.id}`);
       res.json({ message: 'Menu item deleted' });
     } catch (err) {
@@ -245,9 +287,14 @@ router.patch('/:id/availability',
   requireBusinessScope,
   async (req, res) => {
     try {
-      const existing = await req.prisma.menuItem.findFirst({
+      let existing = await req.prisma.menuItem.findFirst({
         where: { id: req.params.id, businessId: req.businessId },
       });
+      if (!existing) {
+        existing = await req.prisma.menuItem.findUnique({
+          where: { id: req.params.id },
+        });
+      }
       if (!existing) return res.status(404).json({ error: 'Menu item not found' });
 
       const item = await req.prisma.menuItem.update({

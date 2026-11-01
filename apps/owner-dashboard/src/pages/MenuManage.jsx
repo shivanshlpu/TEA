@@ -43,12 +43,13 @@ export default function MenuManage() {
   async function loadData() {
     setLoading(true);
     try {
+      const ts = Date.now();
       const [menuData, cats] = await Promise.all([
-        apiFetch(`/menu?businessId=${user.businessId}`),
-        apiFetch(`/categories?businessId=${user.businessId}`),
+        apiFetch(`/menu?businessId=${user.businessId}&_t=${ts}`),
+        apiFetch(`/categories?businessId=${user.businessId}&_t=${ts}`),
       ]);
-      setItems(menuData.items);
-      setCategories(cats);
+      setItems(menuData.items || []);
+      setCategories(cats || []);
     } catch (err) {
       console.error('Load error:', err);
     } finally {
@@ -83,19 +84,33 @@ export default function MenuManage() {
     });
     if (!ok) return;
 
+    // Optimistically remove from state so the table updates immediately
+    setItems(prev => prev.filter(item => item.id !== id));
+
     try {
       await apiFetch(`/menu/${id}`, { method: 'DELETE' });
       toast.success('Menu item deleted');
-      loadData();
-    } catch (err) { toast.error(err.message || 'Failed to delete item'); }
+    } catch (err) {
+      // If the backend says "Menu item not found" or 404, it was already deleted!
+      if (err.message && err.message.toLowerCase().includes('not found')) {
+        toast.success('Menu item removed');
+      } else {
+        toast.error(err.message || 'Failed to delete item');
+        loadData();
+      }
+    }
   }
 
   async function toggleAvailability(id) {
+    // Optimistic toggle
+    setItems(prev => prev.map(item => item.id === id ? { ...item, isAvailable: !item.isAvailable } : item));
     try {
       await apiFetch(`/menu/${id}/availability`, { method: 'PATCH' });
       toast.success('Availability updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update availability');
       loadData();
-    } catch (err) { toast.error(err.message || 'Failed to update availability'); }
+    }
   }
 
   function startEdit(item) {
