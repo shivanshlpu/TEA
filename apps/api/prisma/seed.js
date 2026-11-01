@@ -94,15 +94,15 @@ async function main() {
   // ── Menu Items (Exact 38 Reference Menu Items & Pricing) ──
   const menuData = [
     // Chai & More
-    { categoryId: catChai.id, name: 'Chai', price: 10, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Classic authentic Indian milk chai brewed with aromatic herbs and spices' },
-    { categoryId: catChai.id, name: 'Chai (Big Cup)', price: 20, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Generous large cup of our aromatic signature masala chai' },
-    { categoryId: catChai.id, name: 'Coffee', price: 25, imageUrl: '/uploads/combo_peppy_paneer.png', description: 'Hot brewed rich aromatic coffee with velvety froth' },
-    { categoryId: catChai.id, name: 'Black Coffee', price: 20, imageUrl: '/uploads/combo_tandoori_pizza.png', description: 'Bold and invigorating pure black coffee brewed to perfection' },
-    { categoryId: catChai.id, name: 'Cold Coffee', price: 69, imageUrl: '/uploads/combo_peppy_paneer.png', description: 'Chilled creamy blended coffee topped with chocolate drizzle' },
+    { categoryId: catChai.id, name: 'Chai', price: 10, imageUrl: '/uploads/chai.png', description: 'Classic authentic Indian milk chai brewed with aromatic herbs and spices' },
+    { categoryId: catChai.id, name: 'Chai (Big Cup)', price: 20, imageUrl: '/uploads/chai_big_cup.png', description: 'Generous large cup of our aromatic signature masala chai' },
+    { categoryId: catChai.id, name: 'Coffee', price: 25, imageUrl: '/uploads/coffee.png', description: 'Hot brewed rich aromatic coffee with velvety froth' },
+    { categoryId: catChai.id, name: 'Black Coffee', price: 20, imageUrl: '/uploads/black_coffee.png', description: 'Bold and invigorating pure black coffee brewed to perfection' },
+    { categoryId: catChai.id, name: 'Cold Coffee', price: 69, imageUrl: '/uploads/cold_coffee.png', description: 'Chilled creamy blended coffee topped with chocolate drizzle' },
 
     // Burgers
     { categoryId: catBurger.id, name: 'Aloo Tikki', price: 49, imageUrl: '/uploads/veggie_aloo_patty.png', description: 'Crispy golden spiced aloo tikki patty in a soft toasted bun' },
-    { categoryId: catBurger.id, name: 'Veggie Aloo Tikki', price: 59, imageUrl: '/uploads/veggie_aloo_patty.png', description: 'Crisp aloo tikki loaded with fresh garden vegetables and creamy mayo' },
+    { categoryId: catBurger.id, name: 'Veggie Aloo Tikki', price: 59, imageUrl: '/uploads/veggie_aloo_tikki.png', description: 'Crisp aloo tikki loaded with fresh garden vegetables and creamy mayo' },
     { categoryId: catBurger.id, name: 'Veggie Cheese Burger', price: 89, imageUrl: '/uploads/veggie_cheese_burger.png', description: 'Crispy vegetable patty layered with melted cheese slice and house sauce' },
     { categoryId: catBurger.id, name: 'Veggie Paneer Cheese', price: 99, imageUrl: '/uploads/veggie_paneer_cheese.png', description: 'Succulent paneer slab and veg patty with melted cheese and fresh greens' },
     { categoryId: catBurger.id, name: 'Tandoori Panner Burger', price: 99, imageUrl: '/uploads/veggie_paneer_cheese.png', description: 'Smoky marinated tandoori paneer patty with spicy tandoori mayo' },
@@ -114,7 +114,7 @@ async function main() {
     { categoryId: catMaggie.id, name: 'Plain Cheese Maggie', price: 59, imageUrl: '/uploads/plain_cheese_maggie.png', description: 'Hot classic Maggie loaded with melted mozzarella & cheddar' },
     { categoryId: catMaggie.id, name: 'Veggie Cheese Maggie', price: 69, imageUrl: '/uploads/veggie_cheese_maggie.png', description: 'The all-time favourite noodles loaded with veggies and melted cheese' },
     { categoryId: catMaggie.id, name: 'Tandoori Maggie', price: 69, imageUrl: '/uploads/tandoori_maggie.png', description: 'Spicy noodles infused with smoky tandoori flavors and spices' },
-    { categoryId: catMaggie.id, name: 'Chilli Garlic Maggie', price: 69, imageUrl: '/uploads/veggie_maggie.png', description: 'Zesty noodles tossed with hot roasted garlic and red chilli sauce' },
+    { categoryId: catMaggie.id, name: 'Chilli Garlic Maggie', price: 69, imageUrl: '/uploads/chilli_garlic_maggie.png', description: 'Zesty noodles tossed with hot roasted garlic and red chilli sauce' },
 
     // Pizza
     { categoryId: catPizza.id, name: 'Cheese Onion Capcicum', price: 89, imageUrl: '/uploads/cheese_onion_capcicum.png', description: 'Crisp hand-tossed base with crunchy onions, green capsicum & gooey mozzarella' },
@@ -126,7 +126,7 @@ async function main() {
     // Sandwich
     { categoryId: catSandwich.id, name: 'Veggie Sandwich', price: 59, imageUrl: '/uploads/veggie_sandwich.png', description: 'Fresh cucumber, tomato, onion and mint chutney in grilled bread' },
     { categoryId: catSandwich.id, name: 'Only Ch. Corn Sandwich', price: 69, imageUrl: '/uploads/cheese_corn_sandwich.png', description: 'Grilled golden sandwich stuffed with sweet corn and melted cheese' },
-    { categoryId: catSandwich.id, name: 'Veggie Ch. Corn Sandwich', price: 89, imageUrl: '/uploads/cheese_corn_sandwich.png', description: 'Crunchy vegetables, juicy sweet corn, and rich melted cheese grilled crisp' },
+    { categoryId: catSandwich.id, name: 'Veggie Ch. Corn Sandwich', price: 89, imageUrl: '/uploads/veggie_ch_corn_sandwich.png', description: 'Crunchy vegetables, juicy sweet corn, and rich melted cheese grilled crisp' },
     { categoryId: catSandwich.id, name: 'Tandoori Paneer Sandwich', price: 89, imageUrl: '/uploads/tandoori_paneer_sandwich.jpg', description: 'Smoky grilled paneer slices with tandoori spices and cheese' },
     { categoryId: catSandwich.id, name: 'Tandoori Paneer 2X Layer', price: 119, imageUrl: '/uploads/tandoori_paneer_2x_layer.jpg', description: 'Double-decker grilled sandwich stacked with two layers of tandoori paneer' },
     { categoryId: catSandwich.id, name: 'Cheese Brust Sandwich', price: 129, imageUrl: '/uploads/tea_bhatti_special.png', description: 'Overflowing cheese explosion inside golden grilled sandwich bread' },
@@ -145,7 +145,7 @@ async function main() {
     { categoryId: catPasta.id, name: 'Veggie Paasta', price: 59, imageUrl: '/uploads/veggie_paasta.png', description: 'Tender penne pasta tossed with fresh vegetables in seasoned herb olive sauce' },
     { categoryId: catPasta.id, name: 'Red Sauce Paasta', price: 79, imageUrl: '/uploads/red_sauce_paasta.png', description: 'Tangy and spicy Italian arrabbiata tomato sauce with garden vegetables' },
     { categoryId: catPasta.id, name: 'Cheesee Paasta', price: 99, imageUrl: '/uploads/cheesee_paasta.png', description: 'Creamy macaroni & cheese pasta loaded with melted cheese and herbs' },
-    { categoryId: catPasta.id, name: 'White Sauce Paasta', price: 129, imageUrl: '/uploads/cheesee_paasta.png', description: 'Rich, velvety Alfredo white sauce pasta with capsicum, sweet corn, and oregano' },
+    { categoryId: catPasta.id, name: 'White Sauce Paasta', price: 129, imageUrl: '/uploads/white_sauce_paasta.png', description: 'Rich, velvety Alfredo white sauce pasta with capsicum, sweet corn, and oregano' },
   ];
 
   const createdMenuItems = await Promise.all(menuData.map(item => 
