@@ -509,13 +509,13 @@ export default function Checkout() {
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-red-200">
             <a
-              href="tel:+917000748920"
+              href={businessConfig?.phoneNumber ? `tel:${businessConfig.phoneNumber}` : "#"}
               className="btn-primary bg-red-600 hover:bg-red-700 text-white px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
             >
-              Call Store (+91 7000748920)
+              Call Store {businessConfig?.phoneNumber ? `(${businessConfig.phoneNumber})` : ""}
             </a>
             <a
-              href="https://wa.me/917000748920?text=Hi%20Tea%20Bhatti%2C%20I%20have%20an%20inquiry%20regarding%20store%20hours"
+              href={businessConfig?.whatsappNumber ? `https://wa.me/${businessConfig.whatsappNumber.replace(/[^0-9]/g, "")}?text=Hi%20Tea%20Bhatti` : "#"}
               target="_blank"
               rel="noreferrer"
               className="btn-outline border-red-300 text-red-900 hover:bg-red-100/60 px-3.5 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5"
@@ -574,7 +574,7 @@ export default function Checkout() {
                 <span>Tea Bhatti Cafe Counter</span>
               </div>
               <p className="text-text-secondary pl-6">
-                Near Medical College, Shahdol, Madhya Pradesh • Phone: +91 7000748920
+                {businessConfig?.address || "Tea Bhatti, Shahdol, Madhya Pradesh"} {businessConfig?.phoneNumber ? `• Phone: ${businessConfig.phoneNumber}` : ""}
               </p>
               <div className="pl-6 pt-1 text-[11px] text-text-secondary font-medium">
                 Show your pickup token at the counter when you arrive.

@@ -57,12 +57,12 @@ export default function Footer() {
               <Instagram className="w-4 h-4" />
             </a>
             <a
-              href="https://wa.me/917000748920"
+              href={import.meta.env.VITE_STORE_WHATSAPP ? `https://wa.me/${import.meta.env.VITE_STORE_WHATSAPP}` : "#"}
               target="_blank"
               rel="noreferrer"
               className="w-9 h-9 rounded-full border border-white/20 flex items-center justify-center text-[#E9DFD0] hover:text-white hover:border-emerald-500 hover:bg-emerald-500/20 transition-all"
-              aria-label="WhatsApp (+91 7000748920)"
-              title="Chat with us on WhatsApp (+91 7000748920)"
+              aria-label="WhatsApp"
+              title="Chat with us on WhatsApp"
             >
               <MessageCircle className="w-4 h-4" />
             </a>

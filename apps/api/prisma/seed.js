@@ -34,8 +34,8 @@ async function main() {
     data: {
       name: 'Tea Bhatti', // Used the name from the menu!
       industryType: 'cafe',
-      address: 'Near Medical College, Shahdol, Madhya Pradesh',
-      gstNumber: '29AABCU9603R1ZM',
+      address: process.env.STORE_ADDRESS || 'Tea Bhatti, Shahdol, Madhya Pradesh',
+      gstNumber: process.env.STORE_GST || '29AAAAA0000A1Z5',
       openingTime: '08:00',
       closingTime: '22:00',
       deliveryRadiusKm: 0,
@@ -43,8 +43,8 @@ async function main() {
       packingCharge: 0,
       deliveryCharge: 0,
       upiId: 'teabhatti@upi',
-      phoneNumber: '+917000748920',
-      whatsappNumber: '+917000748920',
+      phoneNumber: process.env.STORE_PHONE || '+910000000000',
+      whatsappNumber: process.env.STORE_WHATSAPP || '+910000000000',
     },
   });
   console.log(`✅ Business: ${business.name} (${business.id})`);
@@ -53,7 +53,7 @@ async function main() {
   const ownerUser = await prisma.user.create({
     data: {
       businessId: business.id, role: 'owner', name: 'Store Owner',
-      phone: process.env.SEED_OWNER_PHONE || '+917000748920', email: 'owner@cafedream.in', passwordHash: ownerHash,
+      phone: process.env.SEED_OWNER_PHONE || '+910000000000', email: process.env.SEED_OWNER_EMAIL || 'owner@example.com', passwordHash: ownerHash,
     },
   });
 
@@ -61,7 +61,7 @@ async function main() {
   const customerUser = await prisma.user.create({
     data: {
       role: 'customer', name: 'Rahul Verma',
-      phone: '+919111111111', email: 'rahul@example.com', passwordHash: customerHash,
+      phone: '+919999999999', email: 'customer@example.com', passwordHash: customerHash,
     },
   });
 

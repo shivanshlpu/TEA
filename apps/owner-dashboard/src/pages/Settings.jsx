@@ -451,7 +451,7 @@ export default function Settings() {
               </label>
               <input
                 type="text"
-                value={form.ownerPhone || user?.phone || '+917000748920'}
+                value={form.ownerPhone || user?.phone || ''}
                 disabled
                 className="input-field bg-bg-subtle/80 cursor-not-allowed font-medium text-text-secondary"
               />
@@ -940,7 +940,7 @@ export default function Settings() {
                             type="tel"
                             value={pairingPhone.replace(/^\+?91/, '')}
                             onChange={(e) => setPairingPhone(e.target.value)}
-                            placeholder="7000748920"
+                            placeholder="9876543210"
                             maxLength={15}
                             className="input pl-16 w-full font-mono text-sm bg-white"
                           />

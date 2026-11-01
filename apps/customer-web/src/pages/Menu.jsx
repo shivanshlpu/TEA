@@ -402,10 +402,10 @@ export default function Menu() {
             </span>
           </div>
           <a
-            href="tel:+917000748920"
+            href={businessConfig?.phoneNumber ? `tel:${businessConfig.phoneNumber}` : "#"}
             className="text-[11px] font-bold text-amber-900 underline shrink-0 hover:text-amber-950"
           >
-            Call Us (+91 7000748920)
+            Call Us {businessConfig?.phoneNumber ? `(${businessConfig.phoneNumber})` : ""}
           </a>
         </div>
       )}

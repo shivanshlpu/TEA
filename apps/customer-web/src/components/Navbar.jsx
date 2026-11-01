@@ -368,8 +368,8 @@ export default function Navbar() {
                     <Phone className="w-4 h-4 text-[#E94B18] shrink-0" />
                     <div>
                       <span className="font-bold text-[#203B2C]">Contact / Phone: </span>
-                      <a href="tel:+917000748920" className="text-[#E94B18] font-semibold hover:underline">
-                        +91 70007 48920
+                      <a href={businessConfig?.phoneNumber ? `tel:${businessConfig.phoneNumber}` : "#"} className="text-[#E94B18] font-semibold hover:underline">
+                        {businessConfig?.phoneNumber || "Contact Store"}
                       </a>
                     </div>
                   </div>
@@ -377,7 +377,7 @@ export default function Navbar() {
 
                 <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
                   <a
-                    href="https://wa.me/917000748920"
+                    href={businessConfig?.whatsappNumber ? `https://wa.me/${businessConfig.whatsappNumber.replace(/[^0-9]/g, "")}` : (import.meta.env.VITE_STORE_WHATSAPP ? `https://wa.me/${import.meta.env.VITE_STORE_WHATSAPP}` : "#")}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"

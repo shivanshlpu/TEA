@@ -213,7 +213,7 @@ function generateReportFromOrders(rawOrders, range, start, end, user) {
     business: {
       name: 'Tea Bhatti',
       address: 'Near Medical College, Shahdol, MP 484001',
-      phone: '+91 7000748920',
+      phone: '',
     },
     dateRange: {
       start: start.toISOString(),
@@ -769,7 +769,7 @@ export default function Reports() {
                   Official Sales & Operations Performance Report
                 </p>
                 <p style={{ fontSize: '11px', color: '#666', margin: 0 }}>
-                  {data.business?.address || 'Near Medical College, Shahdol, Madhya Pradesh'} • Phone: +91 7000748920
+                  {data.business?.address || 'Tea Bhatti, Shahdol, Madhya Pradesh'} {data.business?.phoneNumber ? `• Phone: ${data.business.phoneNumber}` : ''}
                 </p>
               </div>
               <div style={{ textAlign: 'right', fontSize: '11px', color: '#444' }}>

@@ -180,8 +180,8 @@ router.get(['/notification-sound', '/custom-sound', '/sound'], optionalAuth, asy
       business = await req.prisma.business.create({
         data: {
           name: 'Tea Bhatti',
-          address: 'Near Medical College, Shahdol, Madhya Pradesh',
-          phoneNumber: '+917000748920',
+          address: process.env.STORE_ADDRESS || 'Tea Bhatti, Shahdol, Madhya Pradesh',
+          phoneNumber: process.env.STORE_PHONE || '+910000000000',
           notificationSoundType: 'chime',
         },
       });
@@ -214,8 +214,8 @@ const handleNotificationSoundUpdate = async (req, res) => {
       business = await req.prisma.business.create({
         data: {
           name: 'Tea Bhatti',
-          address: 'Near Medical College, Shahdol, Madhya Pradesh',
-          phoneNumber: '+917000748920',
+          address: process.env.STORE_ADDRESS || 'Tea Bhatti, Shahdol, Madhya Pradesh',
+          phoneNumber: process.env.STORE_PHONE || '+910000000000',
           notificationSoundType: 'custom',
         },
       });
@@ -281,8 +281,8 @@ router.delete(['/notification-sound', '/custom-sound', '/sound'], authenticate, 
       business = await req.prisma.business.create({
         data: {
           name: 'Tea Bhatti',
-          address: 'Near Medical College, Shahdol, Madhya Pradesh',
-          phoneNumber: '+917000748920',
+          address: process.env.STORE_ADDRESS || 'Tea Bhatti, Shahdol, Madhya Pradesh',
+          phoneNumber: process.env.STORE_PHONE || '+910000000000',
           notificationSoundType: 'chime',
         },
       });

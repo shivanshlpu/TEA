@@ -761,13 +761,13 @@ export default function OrderTracking() {
           <div className="text-xs">
             <h3 className="font-heading font-bold text-text-primary text-sm">Tea Bhatti Cafe</h3>
             <p className="text-text-secondary">Near Medical College, Shahdol, Madhya Pradesh</p>
-            <p className="text-text-secondary font-medium">Phone: +91 7000748920</p>
+            {order.business?.phoneNumber && <p className="text-text-secondary font-medium">Phone: {order.business.phoneNumber}</p>}
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <a 
-            href="https://wa.me/917000748920?text=Hi%20Tea%20Bhatti%2C%20I%20have%20an%20inquiry%20regarding%20my%20order" 
+            href={order.business?.whatsappNumber ? `https://wa.me/${order.business.whatsappNumber.replace(/[^0-9]/g, "")}?text=Hi%20Tea%20Bhatti` : "#"} 
             target="_blank"
             rel="noreferrer"
             className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl transition-colors shadow-xs"
@@ -775,7 +775,7 @@ export default function OrderTracking() {
             <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
           </a>
           <a 
-            href="tel:+917000748920" 
+            href={order.business?.phoneNumber ? `tel:${order.business.phoneNumber}` : "#"} 
             className="btn-outline px-3.5 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl shrink-0"
           >
             <Phone className="w-3.5 h-3.5" /> Call Store
@@ -865,10 +865,10 @@ export default function OrderTracking() {
 
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200">
                 <a
-                  href="tel:+917000748920"
+                  href={order.business?.phoneNumber ? `tel:${order.business.phoneNumber}` : "#"}
                   className="btn-primary bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5 rounded-xl shadow-xs"
                 >
-                  <Phone className="w-3.5 h-3.5" /> Call Store to Request (+91 7000748920)
+                  <Phone className="w-3.5 h-3.5" /> Call Store to Request {order.business?.phoneNumber ? `(${order.business.phoneNumber})` : ""}
                 </a>
                 <button
                   type="button"
@@ -1039,7 +1039,7 @@ export default function OrderTracking() {
               <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-950 space-y-1">
                 <span className="font-bold block text-red-900 text-sm">3. Call Required & No Refunds Once Cooking Begins</span>
                 <p className="text-xs text-red-800">
-                  If you still wish to request a cancellation after preparation has begun, you must call Tea Bhatti directly at <strong className="text-red-950">+91 7000748920</strong>. In accordance with food hygiene and waste policies, <strong>no refunds will be provided once preparation has started</strong>.
+                  If you still wish to request a cancellation after preparation has begun, you must call Tea Bhatti directly with the store. In accordance with food hygiene and waste policies, <strong>no refunds will be provided once preparation has started</strong>.
                 </p>
               </div>
 

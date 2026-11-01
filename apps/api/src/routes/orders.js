@@ -687,9 +687,9 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
 
     if (['preparing', 'ready', 'delivered'].includes(order.status)) {
       return res.status(400).json({
-        error: 'Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please call Tea Bhatti at +91 7000748920 to request it. Please note: No refunds can be provided once preparation has begun.',
+        error: `Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please contact the store directly. Please note: No refunds can be provided once preparation has begun.`,
         callToCancel: true,
-        phone: '+917000748920',
+        phone: order.business?.phoneNumber || process.env.STORE_PHONE || '',
       });
     }
 
@@ -699,9 +699,9 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
       const FIVE_MINUTES_MS = 5 * 60 * 1000;
       if (orderAgeMs > FIVE_MINUTES_MS) {
         return res.status(400).json({
-          error: 'Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please call Tea Bhatti at +91 7000748920. No refunds can be provided once preparation has begun.',
+          error: `Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please contact the store directly. No refunds can be provided once preparation has begun.`,
           callToCancel: true,
-          phone: '+917000748920',
+          phone: order.business?.phoneNumber || process.env.STORE_PHONE || '',
         });
       }
     }
@@ -1350,7 +1350,7 @@ router.get('/:id/receipt', authenticate, async (req, res) => {
       customerPhone: order.customer?.user?.phone || '',
       businessName: order.business?.name || 'Tea Bhatti',
       businessAddress: order.business?.address || 'Near Medical College, Shahdol, MP',
-      businessPhone: order.business?.phoneNumber || '+917000748920',
+      businessPhone: order.business?.phoneNumber || process.env.STORE_PHONE || '',
       items: order.items.map(item => ({
         name: item.menuItem?.name || 'Item',
         quantity: item.quantity,
@@ -1460,9 +1460,9 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
 
     if (['preparing', 'ready', 'delivered'].includes(order.status)) {
       return res.status(400).json({
-        error: 'Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please call Tea Bhatti at +91 7000748920 to request it. Please note: No refunds can be provided once preparation has begun.',
+        error: `Order preparation has already started. Online cancellation is closed. If you still wish to cancel, please contact the store directly. Please note: No refunds can be provided once preparation has begun.`,
         callToCancel: true,
-        phone: '+917000748920',
+        phone: order.business?.phoneNumber || process.env.STORE_PHONE || '',
       });
     }
 
@@ -1472,9 +1472,9 @@ router.post('/:id/cancel-refund', authenticate, async (req, res) => {
       const FIVE_MINUTES_MS = 5 * 60 * 1000;
       if (orderAgeMs > FIVE_MINUTES_MS) {
         return res.status(400).json({
-          error: 'Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please call Tea Bhatti at +91 7000748920. No refunds can be provided once preparation has begun.',
+          error: `Orders can only be cancelled within the first 5 minutes of placing. If you need assistance, please contact the store directly. No refunds can be provided once preparation has begun.`,
           callToCancel: true,
-          phone: '+917000748920',
+          phone: order.business?.phoneNumber || process.env.STORE_PHONE || '',
         });
       }
     }
