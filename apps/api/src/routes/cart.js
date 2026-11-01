@@ -85,8 +85,6 @@ router.post('/compute', validate(computeCartSchema), async (req, res) => {
       if (!menuItem || menuItem.isAvailable === false) {
         continue;
       }
-        return res.status(400).json({ error: `Menu item not found in catalog` });
-      }
 
       // Calculate discounted price
       const discountedPrice = menuItem.price * (1 - (menuItem.discountPct || 0) / 100);
