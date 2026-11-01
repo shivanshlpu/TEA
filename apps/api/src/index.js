@@ -7,6 +7,7 @@ import cors from 'cors';
 import compression from 'compression';
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
+import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -70,11 +71,14 @@ const corsOriginValidator = (origin, callback) => {
       return callback(null, true);
     }
     // Allow secure tunnels and deployment domains
-    if (/\.(loca\.lt|trycloudflare\.com|ngrok-free\.app|vercel\.app|onrender\.com|render\.com|surge\.sh)$/.test(hostname)) {
+    if (
+      /\.(loca\.lt|trycloudflare\.com|ngrok-free\.app|vercel\.app|onrender\.com|render\.com|surge\.sh|dpdns\.org)$/.test(hostname) ||
+      hostname === 'teabhatti.dpdns.org'
+    ) {
       return callback(null, true);
     }
   } catch (_) {}
-  return callback(null, true);
+  return callback(new Error('Cross-Origin Request Blocked by CORS Policy'), false);
 };
 
 // ── Socket.io ──
@@ -87,6 +91,37 @@ const io = new SocketServer(httpServer, {
   },
 });
 
+// Middleware to authenticate socket connections if token is present
+io.use((socket, next) => {
+  const token =
+    socket.handshake.auth?.token ||
+    socket.handshake.headers?.authorization?.replace(/^Bearer\s+/i, '');
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.user = decoded;
+    } catch (err) {
+      console.warn(`[Socket.io] Invalid token on handshake: ${err.message}`);
+    }
+  }
+  next();
+});
+
+// Helper to authenticate socket on-demand if token was sent with event payload
+function getSocketUser(socket, payloadToken) {
+  if (socket.user) return socket.user;
+  const token = payloadToken || socket.handshake.auth?.token;
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.user = decoded;
+    return decoded;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
   connectedSockets++;
@@ -94,14 +129,35 @@ io.on('connection', (socket) => {
 
   // Join order-specific room for real-time tracking
   socket.on('join-order', (orderId) => {
+    if (!orderId || typeof orderId !== 'string') return;
     socket.join(`order:${orderId}`);
     console.log(`   → Joined room order:${orderId}`);
   });
 
-  // Join business room for owner dashboard live updates
-  socket.on('join-business', (businessId) => {
+  // Join business room for owner dashboard live updates (REQUIRES AUTHENTICATION)
+  socket.on('join-business', (data) => {
+    const businessId = typeof data === 'string' ? data : data?.businessId;
+    const token = typeof data === 'object' ? data?.token : null;
+    const user = getSocketUser(socket, token);
+
+    if (!user) {
+      console.warn(`⚠️ [Socket.io] Unauthenticated join-business attempt on: ${businessId}`);
+      return socket.emit('error', { message: 'Authentication required to join business channel' });
+    }
+
+    const staffRoles = ['owner', 'manager', 'cashier', 'chef', 'admin', 'staff'];
+    if (!staffRoles.includes(user.role)) {
+      console.warn(`⚠️ [Socket.io] Unauthorized role (${user.role}) attempted join-business on: ${businessId}`);
+      return socket.emit('error', { message: 'Unauthorized: staff role required' });
+    }
+
+    if (user.businessId && user.businessId !== businessId && user.role !== 'admin') {
+      console.warn(`⚠️ [Socket.io] Cross-tenant join-business blocked: User ${user.businessId} tried to join ${businessId}`);
+      return socket.emit('error', { message: 'Cross-tenant channel subscription forbidden' });
+    }
+
     socket.join(`business:${businessId}`);
-    console.log(`   → Joined room business:${businessId}`);
+    console.log(`   → [Authorized ${user.role}] Joined room business:${businessId}`);
   });
 
   socket.on('disconnect', () => {
@@ -176,7 +232,12 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Prevent XSS attacks by sanitizing incoming data
 app.use(xss());
 
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads'), {
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Security-Policy', "default-src 'none'");
+  },
+}));
 
 // Google Search Console verification file
 app.get('/google2eca59f8c1f031f6.html', (_req, res) => {

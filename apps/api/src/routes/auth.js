@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, revokeToken } from '../middleware/auth.js';
 import rateLimit from 'express-rate-limit';
 import { verifyPassword, hashPassword, sanitizeUserData } from '../lib/security.js';
 import { sendWhatsAppMessage } from '../lib/baileys.js';
@@ -90,12 +90,12 @@ function generateTokens(user) {
   const accessToken = jwt.sign(
     { id: user.id, role: user.role, businessId: user.businessId },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
   const refreshToken = jwt.sign(
     { id: user.id },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '365d' }
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' }
   );
   return { accessToken, refreshToken };
 }
@@ -248,7 +248,11 @@ router.post('/refresh', validate(refreshSchema), async (req, res) => {
 });
 
 // ── POST /auth/logout ──
-router.post('/logout', authenticate, (_req, res) => {
+router.post('/logout', authenticate, (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    revokeToken(authHeader.split(' ')[1]);
+  }
   res.json({ message: 'Logged out successfully' });
 });
 

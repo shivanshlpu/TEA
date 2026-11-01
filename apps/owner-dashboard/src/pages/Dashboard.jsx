@@ -30,12 +30,13 @@ export default function Dashboard() {
     loadDashboard();
 
     // Socket.io for real-time new orders
-    const socket = io(SOCKET_URL);
+    const token = localStorage.getItem('token');
+    const socket = io(SOCKET_URL, { auth: { token } });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       if (user?.businessId) {
-        socket.emit('join-business', user.businessId);
+        socket.emit('join-business', { businessId: user.businessId, token });
       }
     });
 

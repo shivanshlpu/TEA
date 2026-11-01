@@ -33,7 +33,8 @@ export default function StoreStatusToggle({ className = '' }) {
     loadStoreStatus();
 
     // Listen to real-time status updates via socket
-    const socket = io(SOCKET_URL);
+    const token = localStorage.getItem('token');
+    const socket = io(SOCKET_URL, { auth: { token } });
     socket.on('store-status-changed', (data) => {
       setIsOnline(data.isAcceptingOrders);
       setClosureReason(data.closureReason || '');

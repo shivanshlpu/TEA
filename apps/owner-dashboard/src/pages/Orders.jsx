@@ -60,15 +60,17 @@ export default function Orders() {
     loadOrders(true); 
 
     // Setup Socket.io for instantaneous real-time updates
+    const token = localStorage.getItem('token');
     const socket = io(SOCKET_URL, {
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
+      auth: { token },
     });
     socketRef.current = socket;
 
     socket.on('connect', () => {
       if (user?.businessId) {
-        socket.emit('join-business', user.businessId);
+        socket.emit('join-business', { businessId: user.businessId, token });
       }
     });
 

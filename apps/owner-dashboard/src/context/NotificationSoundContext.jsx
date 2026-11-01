@@ -702,13 +702,15 @@ export function NotificationSoundProvider({ children }) {
 
     let socket;
     try {
+      const token = localStorage.getItem('token');
       socket = io(SOCKET_URL, {
         withCredentials: true,
         transports: ['websocket', 'polling'],
+        auth: { token },
       });
 
       const bizId = user.businessId || 'default';
-      socket.emit('join-business', bizId);
+      socket.emit('join-business', { businessId: bizId, token });
 
       // 1. New Order Placed
       socket.on('new-order', (ord) => {

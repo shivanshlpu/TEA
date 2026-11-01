@@ -36,8 +36,8 @@ class PasswordResetOtpStore {
       return { cooldownSeconds: remainingSeconds };
     }
 
-    // Generate secure 6-digit numeric OTP
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    // Generate cryptographically secure 6-digit numeric OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const resetToken = crypto.randomBytes(24).toString('hex');
 
     this.store.set(cleanPhone, {

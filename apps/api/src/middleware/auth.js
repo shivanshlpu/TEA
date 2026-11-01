@@ -3,6 +3,32 @@
 
 import jwt from 'jsonwebtoken';
 
+// In-memory token revocation blacklist with auto-pruning
+const revokedTokens = new Map(); // token -> expMs
+
+export function revokeToken(token) {
+  if (!token) return;
+  try {
+    const decoded = jwt.decode(token);
+    const expMs = decoded?.exp ? decoded.exp * 1000 : Date.now() + 7 * 24 * 60 * 60 * 1000;
+    revokedTokens.set(token, expMs);
+  } catch (_) {
+    revokedTokens.set(token, Date.now() + 7 * 24 * 60 * 60 * 1000);
+  }
+}
+
+export function isTokenRevoked(token) {
+  return revokedTokens.has(token);
+}
+
+// Prune expired blacklist entries every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [t, expMs] of revokedTokens.entries()) {
+    if (now > expMs) revokedTokens.delete(t);
+  }
+}, 15 * 60 * 1000);
+
 /**
  * Authenticate — requires a valid JWT in Authorization header.
  * Attaches { id, role, businessId } to req.user.
@@ -14,6 +40,10 @@ export function authenticate(req, res, next) {
   }
 
   const token = authHeader.split(' ')[1];
+  if (isTokenRevoked(token)) {
+    return res.status(401).json({ error: 'Token has been revoked upon logout', code: 'TOKEN_REVOKED' });
+  }
+
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = {

@@ -4,6 +4,7 @@ import {
   createStandardRazorpayOrder,
   verifySignature,
   getRazorpayKeyId,
+  getRazorpayClient,
 } from '../lib/razorpay.js';
 import { invalidateDashboardCache } from './orders.js';
 import { sendPushToBusiness } from '../lib/pushNotifications.js';
@@ -95,26 +96,80 @@ router.post('/verify-payment', async (req, res) => {
     let updatedAppOrder = null;
     const targetOrderId = appOrderId || req.body.orderId;
     if (req.prisma && targetOrderId) {
-      try {
-        const existing = await req.prisma.order.findUnique({
-          where: { id: targetOrderId },
-          include: { customer: { include: { user: true } } },
-        });
+      const existing = await req.prisma.order.findUnique({
+        where: { id: targetOrderId },
+        include: { customer: { include: { user: true } } },
+      });
 
-        if (existing) {
-          const newStatus = existing.status === 'received' ? 'accepted' : existing.status;
-          updatedAppOrder = await req.prisma.order.update({
-            where: { id: existing.id },
-            data: {
-              paymentStatus: 'verified',
-              paymentUtr: payment_id,
-              razorpayOrderId: order_id,
-              razorpayPaymentId: payment_id,
-              status: newStatus,
-              paidAt: new Date(),
-              paymentRejectReason: null,
-            },
+      if (!existing) {
+        return res.status(404).json({
+          success: false,
+          error: 'Referenced order not found in database',
+        });
+      }
+
+      // Verify payment details with Razorpay API to prevent amount tampering / substitution
+      const client = getRazorpayClient();
+      if (client) {
+        try {
+          const rzpPayment = await client.payments.fetch(payment_id);
+          if (!rzpPayment) {
+            return res.status(400).json({
+              success: false,
+              error: 'Payment could not be verified with Razorpay',
+            });
+          }
+
+          if (rzpPayment.order_id && rzpPayment.order_id !== order_id) {
+            return res.status(400).json({
+              success: false,
+              error: 'Payment does not belong to the submitted Razorpay order',
+            });
+          }
+
+          if (!['captured', 'authorized'].includes(rzpPayment.status)) {
+            return res.status(400).json({
+              success: false,
+              error: `Payment is in state "${rzpPayment.status}", expected captured/authorized`,
+            });
+          }
+
+          // Expected amount in paise (₹1 = 100 paise)
+          const expectedRupees = (existing.advanceAmount && existing.advanceAmount > 0)
+            ? existing.advanceAmount
+            : existing.total;
+          const expectedPaise = Math.round(Number(expectedRupees) * 100);
+
+          if (Number(rzpPayment.amount) < expectedPaise) {
+            console.warn(`[Razorpay Fraud Prevention] Blocked verification for order ${existing.id}: Paid ${rzpPayment.amount} paise, required ${expectedPaise} paise.`);
+            return res.status(400).json({
+              success: false,
+              error: 'Payment amount mismatch: authorized amount is less than order total',
+            });
+          }
+        } catch (fetchErr) {
+          console.error('[Razorpay API] Error fetching payment from gateway:', fetchErr);
+          return res.status(400).json({
+            success: false,
+            error: 'Failed to verify payment amount with Razorpay gateway',
           });
+        }
+      }
+
+      try {
+        const newStatus = existing.status === 'received' ? 'accepted' : existing.status;
+        updatedAppOrder = await req.prisma.order.update({
+          where: { id: existing.id },
+          data: {
+            paymentStatus: 'verified',
+            paymentUtr: payment_id,
+            razorpayOrderId: order_id,
+            razorpayPaymentId: payment_id,
+            status: newStatus,
+            paidAt: new Date(),
+            paymentRejectReason: null,
+          },
+        });
 
           await req.prisma.orderStatusLog.create({
             data: {

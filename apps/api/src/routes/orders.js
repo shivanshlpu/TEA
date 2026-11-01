@@ -504,6 +504,11 @@ router.patch('/:id/status',
       const order = await req.prisma.order.findUnique({ where: { id: req.params.id } });
       if (!order) return res.status(404).json({ error: 'Order not found' });
 
+      // Enforce multi-tenant boundary: verify order belongs to the staff member's business
+      if (req.user.businessId && order.businessId && req.user.businessId !== order.businessId) {
+        return res.status(403).json({ error: 'Order does not belong to your business' });
+      }
+
       // Validate status flow
       const allowed = STATUS_FLOW[order.status];
       if (!allowed || !allowed.includes(req.body.status)) {
@@ -885,7 +890,7 @@ router.patch('/:id/refund-complete', authenticate, async (req, res) => {
 });
 
 // ── GET /orders/:id/track — tracking data ──
-router.get('/:id/track', optionalAuth, async (req, res) => {
+router.get('/:id/track', authenticate, async (req, res) => {
   try {
     const order = await req.prisma.order.findUnique({
       where: { id: req.params.id },
@@ -909,10 +914,14 @@ router.get('/:id/track', optionalAuth, async (req, res) => {
 
     if (!order) return res.status(404).json({ error: 'Order not found' });
 
-    // Authorization: if user is authenticated as customer, verify ownership
-    if (req.user && req.user.role === 'customer') {
+    // Authorization: customer must own the order; staff must belong to the business
+    if (req.user.role === 'customer') {
       if (order.customer?.userId !== req.user.id) {
         return res.status(403).json({ error: 'You do not have access to track this order' });
+      }
+    } else if (['owner', 'manager', 'cashier'].includes(req.user.role)) {
+      if (req.user.businessId && order.businessId && req.user.businessId !== order.businessId) {
+        return res.status(403).json({ error: 'Order does not belong to your business' });
       }
     }
 
