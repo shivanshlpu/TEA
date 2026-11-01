@@ -198,9 +198,56 @@ Loaded Cheese French Fries. Crispy golden fries smothered in warm liquid cheddar
 
 ---
 
-## 🎁 COMBOS
+---
 
-### 34. Combo Meal Platter
+## ☕ CHAI & MORE (New Category)
+
+### 35. Chai (Classic Masala Chai)
 ```text
-Appetizing cafe combo platter. 8-inch Paneer Pizza, grilled Cheese Corn Sandwich, two tall glasses of icy cold coffee with chocolate drizzle. Arranged on wooden cafe table, photorealistic, 4k.
+Professional food photography of authentic Indian Cutting Masala Chai in a traditional clay terracotta kulhad cup. Steaming hot aromatic milk tea with rich caramel-brown color, subtle cardamom and ginger froth on top. Plated on a rustic wooden cafe table with scattered green cardamom pods and cinnamon sticks. Warm golden-hour lighting, 45° angle, steam softly rising, macro lens, shallow depth of field, photorealistic, 4k.
 ```
+
+### 36. Chai (Big Cup)
+```text
+Commercial cafe photography of a large artisan ceramic mug filled to the brim with steaming hot Indian Masala Chai. Velvety microfoam on top, gentle steam curling upwards into cozy ambient cafe lighting. Plated on a natural cork coaster, warm terracotta and wooden aesthetic, soft bokeh background with cozy cafe vibes, photorealistic, 85mm lens.
+```
+
+### 37. Coffee (Hot Brewed Coffee)
+```text
+Close-up food photograph of hot freshly brewed cafe coffee with velvety crema foam and subtle latte art in a clean ceramic cup. Coffee beans scattered artfully on a dark textured wooden board. Natural window side-lighting, steam rising, creamy froth texture in sharp focus, shallow depth of field, 50mm macro shot.
+```
+
+### 38. Black Coffee
+```text
+Artisan photograph of pure hot Black Coffee in a modern minimalist clear glass cup. Translucent rich dark amber hues illuminated with rim backlight, delicate crema ring on the surface. Served on a dark slate tray with roasted whole coffee beans nearby. Moody atmospheric lighting, crisp focus, editorial coffee photography style.
+```
+
+### 39. Cold Coffee
+```text
+Mouth-watering commercial drink photograph of thick blended Cold Coffee in a tall frosted glass. Inside walls coated with rich chocolate syrup streaks, topped with creamy vanilla froth and chocolate drizzle with a dusting of cocoa powder. A few ice cubes and coffee beans near the base of the glass, condensation droplets on glass surface, vibrant warm cafe lighting, 4k photorealistic.
+```
+
+---
+
+## 🆕 OTHER NEW MENU ITEMS
+
+### 40. Veggie Aloo Tikki Burger
+```text
+High-detail food photography of a loaded Veggie Aloo Tikki Burger. Extra crispy golden-fried spiced potato patty topped with sliced ripe tomatoes, fresh cucumber slices, crunchy purple onion rings, green leaf lettuce, and creamy herb mayonnaise inside a glossy butter-toasted sesame bun. Set on brown craft parchment paper with a rustic tabletop, 45° angle, warm restaurant lighting.
+```
+
+### 41. Chilli Garlic Maggie
+```text
+Appetizing bowl of spicy Chilli Garlic Maggi noodles. Hot yellow masala noodles tossed in fiery roasted garlic oil, visible crunchy bits of golden fried garlic, red chilli flakes, and fresh chopped spring onions in a matte black ceramic bowl. Chopsticks lifting a hot steaming bite of noodles, dynamic food lighting, appetizing and vibrant colors.
+```
+
+### 42. Veggie Ch. Corn Sandwich (Veggie Cheese Corn)
+```text
+Extreme close-up commercial shot of a grilled Veggie Cheese Corn Sandwich sliced in half with an irresistible gooey melted cheese pull. Golden yellow sweet corn kernels, finely diced bell peppers, and melted mozzarella stretching between the two crispy grill-marked toasted bread slices. Sprinkled with dried oregano and chilli flakes, set on a wooden serving board, natural daylight, 4k.
+```
+
+### 43. White Sauce Paasta (Alfredo Penne)
+```text
+Gourmet food photo of rich White Sauce Alfredo Penne Pasta in a shallow ceramic pasta bowl. Silky, creamy garlic white sauce clinging to perfectly cooked penne, mixed with tender sweet corn and crisp green capsicum, topped with a generous sprinkle of grated parmesan, fresh cracked black pepper, and fresh parsley leaf. Plated on a clean wooden cafe table, soft natural window light, photorealistic.
+```
+
